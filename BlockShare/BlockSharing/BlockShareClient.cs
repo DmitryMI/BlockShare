@@ -61,18 +61,18 @@ namespace BlockShare.BlockSharing
 
                 byte[] fileLengthBytes = new byte[sizeof(long)];
                 //networkStream.Read(fileLengthBytes, 0, fileLengthBytes.Length);
-                Utils.ReadPackage(networkStream, fileLengthBytes, 0, fileLengthBytes.Length);
+                Utils.ReadPackage(networkStream, fileLengthBytes, 0, fileLengthBytes.Length, 0);
                 long fileLength = BitConverter.ToInt64(fileLengthBytes, 0);
                 Logger?.Log($"File length: {fileLength}");
 
                 byte[] hashListLengthBytes = new byte[sizeof(int)];
                 //networkStream.Read(hashListLengthBytes, 0, hashListLengthBytes.Length);
-                Utils.ReadPackage(networkStream, hashListLengthBytes, 0, hashListLengthBytes.Length);
+                Utils.ReadPackage(networkStream, hashListLengthBytes, 0, hashListLengthBytes.Length, 10000);
                 int hashListLength = BitConverter.ToInt32(hashListLengthBytes, 0);                
 
                 byte[] hashListBytes = new byte[hashListLength];
                 //networkStream.Read(hashListBytes, 0, hashListLength);
-                Utils.ReadPackage(networkStream, hashListBytes, 0, hashListLength);
+                Utils.ReadPackage(networkStream, hashListBytes, 0, hashListLength, 10000);
                 FileHashList remoteHashList = FileHashList.Deserialise(hashListBytes, null, preferences);
 
                 Logger?.Log($"Hashlist blocks count: {remoteHashList.BlocksCount}");
@@ -124,7 +124,7 @@ namespace BlockShare.BlockSharing
                             blockSize = (int)bytesLeft;
                         }
 
-                        Utils.ReadPackage(networkStream, blockBytes, 0, blockSize);
+                        Utils.ReadPackage(networkStream, blockBytes, 0, blockSize, 0);
 
                         bool doSaveBlock = false;
 

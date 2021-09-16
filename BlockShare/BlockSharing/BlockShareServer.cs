@@ -63,11 +63,11 @@ namespace BlockShare.BlockSharing
 
             byte[] fileNameLengthBytes = new byte[sizeof(int)];
 
-            Utils.ReadPackage(networkStream, fileNameLengthBytes, 0, sizeof(int));
+            Utils.ReadPackage(networkStream, fileNameLengthBytes, 0, sizeof(int), 10000);
             int fileNameLength = BitConverter.ToInt32(fileNameLengthBytes, 0);
             byte[] fileNameBytes = new byte[fileNameLength];
 
-            Utils.ReadPackage(networkStream, fileNameBytes, 0, fileNameLength);
+            Utils.ReadPackage(networkStream, fileNameBytes, 0, fileNameLength, 10000);
             string fileName = Encoding.UTF8.GetString(fileNameBytes);
             string fileHashListName = fileName + ".hashlist";
             string filePath = Path.Combine(preferences.ServerStoragePath, fileName);
@@ -119,9 +119,9 @@ namespace BlockShare.BlockSharing
                 while (client.Connected)
                 {
                     //networkStream.Read(blockRequestBytes, 0, blockRequestBytes.Length);
-                    Utils.ReadPackage(networkStream, blockRequestBytes, 0, blockRequestBytes.Length);
+                    Utils.ReadPackage(networkStream, blockRequestBytes, 0, blockRequestBytes.Length, 60000);
                     int requestStartIndex = BitConverter.ToInt32(blockRequestBytes, 0);
-                    Utils.ReadPackage(networkStream, blockRequestBytes, 0, blockRequestBytes.Length);
+                    Utils.ReadPackage(networkStream, blockRequestBytes, 0, blockRequestBytes.Length, 10000);
                     int requestBlocksNumber = BitConverter.ToInt32(blockRequestBytes, 0);
                     for (int i = requestStartIndex; i < requestStartIndex + requestBlocksNumber; i++)
                     {
