@@ -88,8 +88,8 @@ namespace BlockShare.BlockSharing
                 if (!File.Exists(fileHashListPath))
                 {
                     Logger?.Log($"Calculating hash list for file {filePath} by request of {client.Client.RemoteEndPoint}...");
-                    hashList = FileHashListGenerator.GenerateHashList(fileStream, preferences, HashListGeneratorReporter);
-                    hashListSerialized = hashList.Serialize(Preferences.HashSize);
+                    hashList = FileHashListGenerator.GenerateHashList(fileStream, null, preferences, HashListGeneratorReporter);
+                    hashListSerialized = hashList.Serialize();
                     using (FileStream fileHashListStream = new FileStream(fileHashListPath, FileMode.CreateNew, FileAccess.Write))
                     {
                         fileHashListStream.Write(hashListSerialized, 0, hashListSerialized.Length);
@@ -120,22 +120,27 @@ namespace BlockShare.BlockSharing
                 {
                     //networkStream.Read(blockRequestBytes, 0, blockRequestBytes.Length);
                     Utils.ReadPackage(networkStream, blockRequestBytes, 0, blockRequestBytes.Length);
-                    int blockRequest = BitConverter.ToInt32(blockRequestBytes, 0);
-                    int filePosition = (int)(blockRequest * preferences.BlockSize);
-                    fileStream.Seek(filePosition, SeekOrigin.Begin);
-                    int blockSize;
-                    long bytesLeft = fileStream.Length - filePosition;
-                    if (bytesLeft > preferences.BlockSize)
+                    int requestStartIndex = BitConverter.ToInt32(blockRequestBytes, 0);
+                    Utils.ReadPackage(networkStream, blockRequestBytes, 0, blockRequestBytes.Length);
+                    int requestBlocksNumber = BitConverter.ToInt32(blockRequestBytes, 0);
+                    for (int i = requestStartIndex; i < requestStartIndex + requestBlocksNumber; i++)
                     {
-                        blockSize = (int)preferences.BlockSize;
+                        int filePosition = (int)(i * preferences.BlockSize);
+                        fileStream.Seek(filePosition, SeekOrigin.Begin);
+                        int blockSize;
+                        long bytesLeft = fileStream.Length - filePosition;
+                        if (bytesLeft > preferences.BlockSize)
+                        {
+                            blockSize = (int)preferences.BlockSize;
+                        }
+                        else
+                        {
+                            blockSize = (int)bytesLeft;
+                        }
+                        fileStream.Read(blockBytes, 0, blockSize);
+                        FileHashBlock localBlock = FileHashListGenerator.CalculateBlock(blockBytes, 0, blockSize, preferences, i);
+                        networkStream.Write(blockBytes, 0, blockSize);
                     }
-                    else
-                    {
-                        blockSize = (int)bytesLeft;
-                    }
-                    fileStream.Read(blockBytes, 0, blockSize);
-                    FileHashBlock localBlock = FileHashListGenerator.CalculateBlock(blockBytes, 0, blockSize, preferences, blockRequest);
-                    networkStream.Write(blockBytes, 0, blockSize);
 
 #if DEBUG
                     //Logger?.Log($"Block {blockRequest} <{Utils.PrintHex(blockBytes, 0, 16)}> of {filePath} sent to {client.Client.RemoteEndPoint}.");

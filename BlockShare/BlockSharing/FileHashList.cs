@@ -11,38 +11,60 @@ namespace BlockShare.BlockSharing
     public class FileHashList : IEnumerable<FileHashBlock>
     {
         private FileHashBlock[] hashBlocks;
+        private bool[] dirtyBlocks;
 
-        public FileHashList()
+        private Stream serializationStream;
+        private Preferences preferences;
+
+        public FileHashList(Stream serializationStream, Preferences preferences)
         {
             hashBlocks = new FileHashBlock[0];
-        }
-        public FileHashList(int blocksCount)
-        {
-            hashBlocks = new FileHashBlock[blocksCount];            
-        }
+            dirtyBlocks = new bool[0];
+            this.serializationStream = serializationStream;
+            this.preferences = preferences;
 
-        public FileHashList(int blocksCount, int blockSize)
+            if(serializationStream != null)
+            {
+                DeserializeFromStream();
+            }
+        }
+        public FileHashList(int blocksCount, Stream serializationStream, Preferences preferences)
         {
             hashBlocks = new FileHashBlock[blocksCount];
-            for(int i = 0; i < hashBlocks.Length; i++)
+            dirtyBlocks = new bool[blocksCount];
+            this.serializationStream = serializationStream;
+            this.preferences = preferences;
+        }        
+
+        private void DeserializeFromStream()
+        {
+            int blocksCount = (int)(serializationStream.Length / Preferences.HashSize);
+            if(hashBlocks.Length <= blocksCount)
             {
-                long pos = i * blockSize;
-                hashBlocks[i] = new FileHashBlock(pos, null);
+                Array.Resize(ref hashBlocks, blocksCount);
+                Array.Resize(ref dirtyBlocks, blocksCount);
+            }
+            for (int i = 0; i < blocksCount; i++)
+            {
+                byte[] hash = new byte[Preferences.HashSize];
+                int filePosition = (int)(i * preferences.BlockSize);
+                serializationStream.Read(hash, 0, hash.Length);
+                hashBlocks[i] = new FileHashBlock(filePosition, hash);
+                dirtyBlocks[i] = false;
             }
         }
 
-        public static FileHashList Deserialise(byte[] serializedHashList, int hashLength, int blockSize)
+        public static FileHashList Deserialise(byte[] serializedHashList, Stream serializationStream, Preferences preferences)
         {
-            int blocksCount = serializedHashList.Length / hashLength;
-            FileHashList list = new FileHashList();
-            list.hashBlocks = new FileHashBlock[blocksCount];
+            int blocksCount = serializedHashList.Length / Preferences.HashSize;
+            FileHashList list = new FileHashList(blocksCount, serializationStream, preferences);
 
             for(int i = 0; i < blocksCount; i++)
             {
-                byte[] hash = new byte[hashLength];
-                int filePosition = i * blockSize;
-                Array.Copy(serializedHashList, i * hashLength, hash, 0, hashLength);
-                list.hashBlocks[i] = new FileHashBlock(filePosition, hash);          
+                byte[] hash = new byte[preferences.GetHashSize()];
+                int filePosition = (int)(i * preferences.BlockSize);
+                Array.Copy(serializedHashList, i * preferences.GetHashSize(), hash, 0, preferences.GetHashSize());
+                list[i] = new FileHashBlock(filePosition, hash);               
             }
 
             return list;
@@ -53,15 +75,15 @@ namespace BlockShare.BlockSharing
             throw new NotImplementedException();
         }
 
-        public byte[] Serialize(int hashLength)
+        public byte[] Serialize()
         {
-            int dataLength = hashBlocks.Length * hashLength;
+            int dataLength = hashBlocks.Length * preferences.GetHashSize();
             byte[] data = new byte[dataLength];
 
             for(int i = 0; i < hashBlocks.Length; i++)
             {
-                int filePosition = i * hashLength;
-                Array.Copy(hashBlocks[i].Hash, 0, data, filePosition, hashLength);
+                int filePosition = i * preferences.GetHashSize();
+                Array.Copy(hashBlocks[i].Hash, 0, data, filePosition, preferences.GetHashSize());
             }
 
             return data;
@@ -69,7 +91,51 @@ namespace BlockShare.BlockSharing
 
         public int BlocksCount => hashBlocks.Length;
 
-        public FileHashBlock this[int block] { get => hashBlocks[block]; set => hashBlocks[block] = value; }
+        public void Flush()
+        {
+            if(serializationStream == null)
+            {
+                throw new InvalidOperationException("This hashlist cannot be serialized to dist: SerializationStream is null");
+            }
+
+            for(int i = 0; i < BlocksCount; i++)
+            {
+                if(dirtyBlocks[i])
+                {
+                    int streamPosition = i * preferences.GetHashSize();
+                    serializationStream.Seek(streamPosition, SeekOrigin.Begin);
+                    serializationStream.Write(hashBlocks[i].Hash, 0, preferences.GetHashSize());
+                    dirtyBlocks[i] = false;
+                }
+            }
+
+            serializationStream.Flush();
+        }
+
+        public FileHashBlock this[int block]
+        {
+            get
+            {
+                if(block < BlocksCount)
+                {
+                    return hashBlocks[block];
+                }
+                else
+                {
+                    return null;
+                }
+            }
+            set
+            {
+                if(block >= BlocksCount)
+                {
+                    Array.Resize(ref hashBlocks, block + 1);
+                    Array.Resize(ref dirtyBlocks, block + 1);
+                }
+                hashBlocks[block] = value;
+                dirtyBlocks[block] = true;
+            }
+        }
 
         IEnumerator IEnumerable.GetEnumerator()
         {

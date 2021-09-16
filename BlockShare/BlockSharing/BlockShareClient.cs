@@ -25,9 +25,23 @@ namespace BlockShare.BlockSharing
         public void DownloadFile(string serverIp, int serverPort, string fileName, IProgressReporter localHashProgress, IProgressReporter downloadProgress)
         {
             string localFilePath = Path.Combine(preferences.ClientStoragePath, fileName);
+            string localFileHashlistName = fileName + ".hashpart";
+            string localFileHashlistPath = Path.Combine(preferences.ClientStoragePath, localFileHashlistName);
             using (FileStream localFileStream = new FileStream(localFilePath, FileMode.OpenOrCreate, FileAccess.ReadWrite))
+            using (FileStream localFileHashlistStream = new FileStream(localFileHashlistPath, FileMode.OpenOrCreate, FileAccess.ReadWrite))
             {
-                FileHashList localHashList = FileHashListGenerator.GenerateHashList(localFileStream, preferences, localHashProgress);
+                FileHashList localHashList = new FileHashList(localFileHashlistStream, preferences);                
+                if(localHashList.BlocksCount == 0)
+                {
+                    Logger?.Log($"Local hashpart file is empty or does not exist, rehashing...");
+                    localHashList = FileHashListGenerator.GenerateHashList(localFileStream, localFileHashlistStream, preferences, localHashProgress);
+                    localHashList.Flush();
+                }
+                else
+                {
+                    Logger?.Log($"{localHashList.BlocksCount} hashes deserialized from local hashpart file");
+                }
+                //FileHashList localHashList = FileHashListGenerator.GenerateHashList(localFileStream, preferences, localHashProgress);
 
                 tcpClient = new TcpClient();
                 tcpClient.Connect(serverIp, serverPort);
@@ -59,7 +73,7 @@ namespace BlockShare.BlockSharing
                 byte[] hashListBytes = new byte[hashListLength];
                 //networkStream.Read(hashListBytes, 0, hashListLength);
                 Utils.ReadPackage(networkStream, hashListBytes, 0, hashListLength);
-                FileHashList remoteHashList = FileHashList.Deserialise(hashListBytes, Preferences.HashSize, (int)preferences.BlockSize);
+                FileHashList remoteHashList = FileHashList.Deserialise(hashListBytes, null, preferences);
 
                 Logger?.Log($"Hashlist blocks count: {remoteHashList.BlocksCount}");
 
@@ -68,19 +82,37 @@ namespace BlockShare.BlockSharing
                 for (int i = 0; i < remoteHashList.BlocksCount; i++)
                 {
                     FileHashBlock remoteBlock = remoteHashList[i];
-                    FileHashBlock localBlock = null;
-                    if (localHashList.BlocksCount > i)
+                    FileHashBlock localBlock = localHashList[i];
+                    if (remoteBlock == localBlock)
                     {
-                        localBlock = localHashList[i];
+                        continue;
                     }
 
-                    bool isLocalBlockOk = remoteBlock == localBlock;
-                    if (!isLocalBlockOk)
+                    int requestStartIndex = i;
+                    int requestBlocksNumber = 1;
+                    for (int j = i + 1; j < remoteHashList.BlocksCount; j++)
                     {
-                        //Logger?.Log($"Requesting block {i}: {remoteBlock}");
-                        byte[] blockRequestBytes = BitConverter.GetBytes(i);
-                        networkStream.Write(blockRequestBytes, 0, blockRequestBytes.Length);
-                        long filePos = i * preferences.BlockSize;
+                        remoteBlock = remoteHashList[j];
+                        localBlock = localHashList[j];
+
+                        bool isLocalBlockOk = remoteBlock == localBlock;
+                        if (!isLocalBlockOk)
+                        {
+                            requestBlocksNumber++;
+                        }
+                    }
+                    i += requestBlocksNumber;
+
+                    Logger?.Log($"Requesting range {requestStartIndex}-{requestStartIndex + requestBlocksNumber}: {remoteBlock}");
+                    byte[] requestStartIndexBytes = BitConverter.GetBytes(requestStartIndex);
+                    networkStream.Write(requestStartIndexBytes, 0, requestStartIndexBytes.Length);
+                    byte[] requestBlocksNumberBytes = BitConverter.GetBytes(requestBlocksNumber);
+                    networkStream.Write(requestBlocksNumberBytes, 0, requestBlocksNumberBytes.Length);
+
+                    for (int j = requestStartIndex; j < requestStartIndex + requestBlocksNumber; j++)
+                    {
+                        remoteBlock = remoteHashList[j];
+                        long filePos = j * preferences.BlockSize;
                         long bytesLeft = fileLength - filePos;
                         int blockSize;
                         if (bytesLeft > preferences.BlockSize)
@@ -98,28 +130,28 @@ namespace BlockShare.BlockSharing
 
                         if (preferences.ClientBlockVerificationEnabled)
                         {
-                            FileHashBlock receivedBlock = FileHashListGenerator.CalculateBlock(blockBytes, 0, blockSize, preferences, i);
+                            FileHashBlock receivedBlock = FileHashListGenerator.CalculateBlock(blockBytes, 0, blockSize, preferences, j);
                             if (receivedBlock == remoteBlock)
                             {
                                 doSaveBlock = true;
                             }
                             else
                             {
-                                Logger?.Log($"Received erroneus block: {Utils.PrintHex(blockBytes, 0, 16)}");
-                                i--;
-                                continue;
+                                Logger?.Log($"Received erroneus block: {Utils.PrintHex(blockBytes, 0, 16)}");                                
                             }
+                            localHashList[j] = receivedBlock;
+                            localHashList.Flush();
                         }
                         else
                         {
                             doSaveBlock = true;
                         }
 
-                        if(doSaveBlock)
+                        if (doSaveBlock)
                         {
                             localFileStream.Seek(filePos, SeekOrigin.Begin);
                             localFileStream.Write(blockBytes, 0, blockSize);
-                            downloadProgress?.ReportProgress(this, (double)i / remoteHashList.BlocksCount);
+                            downloadProgress?.ReportProgress(this, (double)j / remoteHashList.BlocksCount);
                         }
                     }
                 }

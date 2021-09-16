@@ -10,7 +10,7 @@ namespace BlockShare.BlockSharing
 {
     public static class FileHashListGenerator
     {
-        public static FileHashList GenerateHashList(Stream fileStream, Preferences preferences, IProgressReporter progressReporter)
+        public static FileHashList GenerateHashList(Stream fileStream, Stream serializationStream, Preferences preferences, IProgressReporter progressReporter)
         {
             SHA256 sha256 = SHA256.Create();
 
@@ -21,7 +21,7 @@ namespace BlockShare.BlockSharing
                 blocksCount++;
             }
 
-            FileHashList hashList = new FileHashList(blocksCount);
+            FileHashList hashList = new FileHashList(blocksCount, serializationStream, preferences);
 
             for(int i = 0; i < blocksCount; i++)
             {
@@ -35,6 +35,8 @@ namespace BlockShare.BlockSharing
                 double progress = (double)i / blocksCount;
                 progressReporter?.ReportProgress(null, progress);
             }
+
+            progressReporter?.ReportFinishing(null, true);
 
             return hashList;
         }
