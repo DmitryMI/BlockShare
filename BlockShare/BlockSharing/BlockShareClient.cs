@@ -140,7 +140,7 @@ namespace BlockShare.BlockSharing
                                 Logger?.Log($"Received erroneus block: {Utils.PrintHex(blockBytes, 0, 16)}");                                
                             }
                             localHashList[j] = receivedBlock;
-                            localHashList.Flush();
+                            localHashList.Flush(j);
                         }
                         else
                         {

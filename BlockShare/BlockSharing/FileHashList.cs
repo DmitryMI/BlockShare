@@ -91,6 +91,21 @@ namespace BlockShare.BlockSharing
 
         public int BlocksCount => hashBlocks.Length;
 
+        public void Flush(int block)
+        {
+            if (serializationStream == null)
+            {
+                throw new InvalidOperationException("This hashlist cannot be serialized to dist: SerializationStream is null");
+            }
+
+            int streamPosition = block * preferences.GetHashSize();
+            serializationStream.Seek(streamPosition, SeekOrigin.Begin);
+            serializationStream.Write(hashBlocks[block].Hash, 0, preferences.GetHashSize());
+            dirtyBlocks[block] = false;
+
+            serializationStream.Flush();
+        }
+
         public void Flush()
         {
             if(serializationStream == null)
