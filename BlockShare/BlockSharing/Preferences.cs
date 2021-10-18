@@ -17,5 +17,7 @@ namespace BlockShare.BlockSharing
         public string ClientStoragePath { get; set; } = "";
 
         public bool ClientBlockVerificationEnabled { get; set; } = true;
+
+        public int Verbosity { get; set; } = 0;
     }
 }

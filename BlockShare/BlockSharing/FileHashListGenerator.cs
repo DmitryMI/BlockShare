@@ -33,10 +33,10 @@ namespace BlockShare.BlockSharing
                 hashList[i] = hashBlock;
 
                 double progress = (double)i / blocksCount;
-                progressReporter?.ReportProgress(null, progress);
+                progressReporter?.ReportOverallProgress(null, progress);
             }
 
-            progressReporter?.ReportFinishing(null, true);
+            progressReporter?.ReportOverallFinishing(null, true);
 
             return hashList;
         }
@@ -62,9 +62,9 @@ namespace BlockShare.BlockSharing
                 hashList[i] = hashBlock;
 
                 double progress = (double)i / blocksCount;
-                progressReporter?.ReportProgress(null, progress);
+                progressReporter?.ReportOverallProgress(null, progress);
             }
-            progressReporter?.ReportProgress(null, 1.0f);
+            progressReporter?.ReportOverallProgress(null, 1.0f);
         }
 
         public static FileHashBlock CalculateBlock(Stream fileStream, Preferences preferences, int blockIndex)

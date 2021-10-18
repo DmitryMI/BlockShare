@@ -5,6 +5,8 @@ using System.Linq;
 using System.Net.Sockets;
 using System.Text;
 using System.Threading.Tasks;
+using System.Xml;
+using Microsoft.SqlServer.Server;
 
 namespace BlockShare.BlockSharing
 {
@@ -14,6 +16,9 @@ namespace BlockShare.BlockSharing
 
         private Preferences preferences;
 
+        private NetStat clientNetStat = new NetStat();
+        public NetStat GetClientNetStat => clientNetStat.CloneNetStat();
+
         public ILogger Logger { get; set; }
 
         public BlockShareClient(Preferences preferences, ILogger logger)
@@ -22,60 +27,99 @@ namespace BlockShare.BlockSharing
             Logger = logger;
         }
 
-        public void DownloadFile(string serverIp, int serverPort, string fileName, IProgressReporter localHashProgress, IProgressReporter downloadProgress)
+        private void NetworkWrite(NetworkStream stream, byte[] data, int offset, int length)
         {
-            string localFilePath = Path.Combine(preferences.ClientStoragePath, fileName);
+            stream.Write(data, offset, length);
+            clientNetStat.TotalSent += (ulong)length;
+        }
+
+        private void NetworkRead(NetworkStream stream, byte[] data, int offset, int length, long timeout)
+        {
+            Utils.ReadPackage(stream, data, offset, length, timeout);
+            clientNetStat.TotalReceived += (ulong)length;
+        }
+
+        private void EnsurePathExists(DirectoryInfo rootDirInfo, FileInfo fileInfo)
+        {
+            Stack<DirectoryInfo> pathStack = new Stack<DirectoryInfo>();
+            DirectoryInfo parent = fileInfo.Directory;
+
+            while (parent != null && !Utils.ArePathsEqual(parent.FullName, rootDirInfo.FullName))
+            {
+                pathStack.Push(parent);
+                parent = parent.Parent;
+            }
+
+            while (pathStack.Count > 0)
+            {
+                DirectoryInfo dir = pathStack.Pop();
+                if (!Directory.Exists(dir.FullName))
+                {
+                    Directory.CreateDirectory(dir.FullName);
+                    Log($"Created directory: {dir.FullName}", 3);
+                }
+            }
+        }
+
+        private void Log(string message, int withVerbosity)
+        {
+            if (withVerbosity <= preferences.Verbosity)
+            {
+                Logger?.Log(message);
+            }
+        }
+
+        private void DownloadFileInternal(NetworkStream networkStream, string fileName, IProgressReporter localHashProgress, IProgressReporter downloadProgress, int jobId)
+        {
             string localFileHashlistName = fileName + ".hashpart";
             string localFileHashlistPath = Path.Combine(preferences.ClientStoragePath, localFileHashlistName);
-            using (FileStream localFileStream = new FileStream(localFilePath, FileMode.OpenOrCreate, FileAccess.ReadWrite))
-            using (FileStream localFileHashlistStream = new FileStream(localFileHashlistPath, FileMode.OpenOrCreate, FileAccess.ReadWrite))
+
+            string localFilePath = Path.Combine(preferences.ClientStoragePath, fileName);
+            FileInfo localFileInfo = new FileInfo(localFilePath);
+            DirectoryInfo rootDirectoryInfo = new DirectoryInfo(preferences.ClientStoragePath);
+
+            EnsurePathExists(rootDirectoryInfo, localFileInfo);
+
+            if (!File.Exists(localFileInfo.FullName))
             {
-                FileHashList localHashList = new FileHashList(localFileHashlistStream, preferences);                
-                if(localHashList.BlocksCount == 0)
+                File.Create(localFileInfo.FullName).Close();
+            }
+
+            using (FileStream localFileStream = new FileStream(localFileInfo.FullName, FileMode.OpenOrCreate, FileAccess.ReadWrite))
+            using (FileStream localFileHashlistStream =
+                new FileStream(localFileHashlistPath, FileMode.OpenOrCreate, FileAccess.ReadWrite))
+            {
+                FileHashList localHashList = new FileHashList(localFileHashlistStream, preferences);
+                if (localHashList.BlocksCount == 0)
                 {
-                    Logger?.Log($"Local hashpart file is empty or does not exist, rehashing...");
-                    localHashList = FileHashListGenerator.GenerateHashList(localFileStream, localFileHashlistStream, preferences, localHashProgress);
+                    Log($"Local hashpart file is empty or does not exist, rehashing...", 2);
+                    localHashList = FileHashListGenerator.GenerateHashList(localFileStream, localFileHashlistStream,
+                        preferences, localHashProgress);
                     localHashList.Flush();
                 }
                 else
                 {
-                    Logger?.Log($"{localHashList.BlocksCount} hashes deserialized from local hashpart file");
+                    Log($"{localHashList.BlocksCount} hashes deserialized from local hashpart file", 2);
                 }
-                //FileHashList localHashList = FileHashListGenerator.GenerateHashList(localFileStream, preferences, localHashProgress);
 
-                tcpClient = new TcpClient();
-                tcpClient.Connect(serverIp, serverPort);
-
-                Logger?.Log($"Connected to server {serverIp} {serverPort}");
-
-                NetworkStream networkStream = tcpClient.GetStream();
-
-                byte[] fileNameBytes = Encoding.UTF8.GetBytes(fileName);
-                int fileNameLength = fileNameBytes.Length;
-                byte[] fileNameLengthBytes = BitConverter.GetBytes(fileNameLength);
-
-                networkStream.Write(fileNameLengthBytes, 0, fileNameLengthBytes.Length);
-                networkStream.Write(fileNameBytes, 0, fileNameBytes.Length);
-
-                Logger?.Log($"Requested file {fileName}");
 
                 byte[] fileLengthBytes = new byte[sizeof(long)];
                 //networkStream.Read(fileLengthBytes, 0, fileLengthBytes.Length);
-                Utils.ReadPackage(networkStream, fileLengthBytes, 0, fileLengthBytes.Length, 0);
+                NetworkRead(networkStream, fileLengthBytes, 0, fileLengthBytes.Length, 0);
                 long fileLength = BitConverter.ToInt64(fileLengthBytes, 0);
-                Logger?.Log($"File length: {fileLength}");
+                Log($"File length: {fileLength}", 2);
 
                 byte[] hashListLengthBytes = new byte[sizeof(int)];
                 //networkStream.Read(hashListLengthBytes, 0, hashListLengthBytes.Length);
-                Utils.ReadPackage(networkStream, hashListLengthBytes, 0, hashListLengthBytes.Length, 10000);
-                int hashListLength = BitConverter.ToInt32(hashListLengthBytes, 0);                
+                NetworkRead(networkStream, hashListLengthBytes, 0, hashListLengthBytes.Length, 10000);
+                int hashListLength = BitConverter.ToInt32(hashListLengthBytes, 0);
 
                 byte[] hashListBytes = new byte[hashListLength];
                 //networkStream.Read(hashListBytes, 0, hashListLength);
-                Utils.ReadPackage(networkStream, hashListBytes, 0, hashListLength, 10000);
+                NetworkRead(networkStream, hashListBytes, 0, hashListLength, 10000);
                 FileHashList remoteHashList = FileHashList.Deserialise(hashListBytes, null, preferences);
 
-                Logger?.Log($"Hashlist blocks count: {remoteHashList.BlocksCount}");
+                Log($"Hashlist blocks count: {remoteHashList.BlocksCount}", 2);
 
                 byte[] blockBytes = new byte[preferences.BlockSize];
 
@@ -101,13 +145,16 @@ namespace BlockShare.BlockSharing
                             requestBlocksNumber++;
                         }
                     }
+
                     i += requestBlocksNumber;
 
-                    Logger?.Log($"Requesting range {requestStartIndex}-{requestStartIndex + requestBlocksNumber}: {remoteBlock}");
+                    Log(
+                        $"Requesting range {requestStartIndex}-{requestStartIndex + requestBlocksNumber}: {remoteBlock}", 2);
+                    NetworkWrite(networkStream, new byte[] { (byte)Command.NextBlock }, 0, 1);
                     byte[] requestStartIndexBytes = BitConverter.GetBytes(requestStartIndex);
-                    networkStream.Write(requestStartIndexBytes, 0, requestStartIndexBytes.Length);
+                    NetworkWrite(networkStream, requestStartIndexBytes, 0, requestStartIndexBytes.Length);
                     byte[] requestBlocksNumberBytes = BitConverter.GetBytes(requestBlocksNumber);
-                    networkStream.Write(requestBlocksNumberBytes, 0, requestBlocksNumberBytes.Length);
+                    NetworkWrite(networkStream, requestBlocksNumberBytes, 0, requestBlocksNumberBytes.Length);
 
                     for (int j = requestStartIndex; j < requestStartIndex + requestBlocksNumber; j++)
                     {
@@ -117,28 +164,31 @@ namespace BlockShare.BlockSharing
                         int blockSize;
                         if (bytesLeft > preferences.BlockSize)
                         {
-                            blockSize = (int)preferences.BlockSize;
+                            blockSize = (int) preferences.BlockSize;
                         }
                         else
                         {
-                            blockSize = (int)bytesLeft;
+                            blockSize = (int) bytesLeft;
                         }
 
-                        Utils.ReadPackage(networkStream, blockBytes, 0, blockSize, 0);
+                        NetworkRead(networkStream, blockBytes, 0, blockSize, 0);
+                        clientNetStat.Payload += (ulong) blockSize;
 
                         bool doSaveBlock = false;
 
                         if (preferences.ClientBlockVerificationEnabled)
                         {
-                            FileHashBlock receivedBlock = FileHashListGenerator.CalculateBlock(blockBytes, 0, blockSize, preferences, j);
+                            FileHashBlock receivedBlock =
+                                FileHashListGenerator.CalculateBlock(blockBytes, 0, blockSize, preferences, j);
                             if (receivedBlock == remoteBlock)
                             {
                                 doSaveBlock = true;
                             }
                             else
                             {
-                                Logger?.Log($"Received erroneus block: {Utils.PrintHex(blockBytes, 0, 16)}");                                
+                                Log($"Received erroneus block: {Utils.PrintHex(blockBytes, 0, 16)}", 0);
                             }
+
                             localHashList[j] = receivedBlock;
                             localHashList.Flush(j);
                         }
@@ -151,13 +201,111 @@ namespace BlockShare.BlockSharing
                         {
                             localFileStream.Seek(filePos, SeekOrigin.Begin);
                             localFileStream.Write(blockBytes, 0, blockSize);
-                            downloadProgress?.ReportProgress(this, (double)j / remoteHashList.BlocksCount);
+                            downloadProgress?.ReportProgress(this, (double) j / remoteHashList.BlocksCount, jobId);
                         }
                     }
                 }
             }
-            downloadProgress?.ReportFinishing(this, true);
-            Logger?.Log($"File downloading finished");
+
+            NetworkWrite(networkStream, new byte[] { (byte)Command.Terminate }, 0, 1);
+            downloadProgress?.ReportFinishing(this, true, jobId);
+            Log($"Downloading finished", 0);
+        }
+
+        public void DownloadFile(string serverIp, int serverPort, string fileName, IProgressReporter localHashProgress,
+            IProgressReporter downloadProgress)
+        {
+
+            tcpClient = new TcpClient();
+            tcpClient.Connect(serverIp, serverPort);
+
+            Log($"Connected to server {serverIp} {serverPort}", 0);
+
+            NetworkStream networkStream = tcpClient.GetStream();
+
+            byte[] fileNameBytes = Encoding.UTF8.GetBytes(fileName);
+            int fileNameLength = fileNameBytes.Length;
+            byte[] fileNameLengthBytes = BitConverter.GetBytes(fileNameLength);
+
+            NetworkWrite(networkStream, fileNameLengthBytes, 0, fileNameLengthBytes.Length);
+            NetworkWrite(networkStream, fileNameBytes, 0, fileNameBytes.Length);
+
+            Log($"Requested {fileName}", 0);
+
+            byte[] entryTypeMessage = new byte[1];
+            NetworkRead(networkStream, entryTypeMessage, 0, entryTypeMessage.Length, 0);
+            FileSystemEntryType entryType = (FileSystemEntryType) entryTypeMessage[0];
+            switch (entryType)
+            {
+                case FileSystemEntryType.NonExistent:
+                    Log("Server refused to send requested entry, because it does not exist", 0);
+                    tcpClient.Close();
+                    return;
+                case FileSystemEntryType.File:
+                    Log("Server reported, requested entry is a file", 0);
+                    break;
+                case FileSystemEntryType.Directory:
+                    Log("Server reported, requested entry is a directory", 0);
+                    break;
+                default:
+                    throw new ArgumentOutOfRangeException(nameof(entryType), "Unknown File System Entry Type");
+            }
+
+            if (entryType == FileSystemEntryType.Directory)
+            {
+                byte[] digestSizeBytes = new byte[sizeof(int)];
+                NetworkRead(networkStream, digestSizeBytes, 0, digestSizeBytes.Length, 0);
+                int digestSize = BitConverter.ToInt32(digestSizeBytes, 0);
+                Log($"Digest length: {digestSize}", 0);
+                byte[] xmlDirectoryDigestBytes = new byte[digestSize];
+                NetworkRead(networkStream, xmlDirectoryDigestBytes, 0, xmlDirectoryDigestBytes.Length, 0);
+                string xmlDirectoryDigest = Encoding.UTF8.GetString(xmlDirectoryDigestBytes);
+                Log($"Digest received", 0);
+                XmlDocument xmlDocument = new XmlDocument();
+                xmlDocument.LoadXml(xmlDirectoryDigest);
+                Log($"Digest parsed to xml-dom", 0);
+
+                string[] fileNames = Utils.GetFileNamesFromDigest(xmlDocument);
+                Log($"Files to load: {fileNames.Length}", 0);
+                for (var index = 0; index < fileNames.Length; index++)
+                {
+                    var name = fileNames[index];
+
+                    //tcpClient.Close();
+                    //tcpClient = new TcpClient();
+                    //tcpClient.Connect(serverIp, serverPort);
+                    //networkStream = tcpClient.GetStream();
+
+                    fileNameBytes = Encoding.UTF8.GetBytes(name);
+                    fileNameLength = fileNameBytes.Length;
+                    fileNameLengthBytes = BitConverter.GetBytes(fileNameLength);
+
+                    NetworkWrite(networkStream, fileNameLengthBytes, 0, fileNameLengthBytes.Length);
+                    NetworkWrite(networkStream, fileNameBytes, 0, fileNameBytes.Length);
+
+                    Log($"Requested file {name}\nWaiting for entry type message...", 1);
+
+                    entryTypeMessage = new byte[1];
+                    NetworkRead(networkStream, entryTypeMessage, 0, entryTypeMessage.Length, 0);
+                    entryType = (FileSystemEntryType) entryTypeMessage[0];
+
+                    if (entryType != FileSystemEntryType.File)
+                    {
+                        throw new ArgumentException("Error: Server reported, requested entry is not a file");
+                    }
+
+                    Log($"Entry type: {entryType}", 2);
+
+                    DownloadFileInternal(networkStream, name, localHashProgress, downloadProgress, index);
+
+                    downloadProgress?.ReportOverallProgress(this, (double) index / fileNames.Length);
+                }
+
+                return;
+            }
+
+            DownloadFileInternal(networkStream, fileName, localHashProgress, downloadProgress, 0);
+            
             tcpClient.Close();
         }
     }    

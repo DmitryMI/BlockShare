@@ -32,6 +32,28 @@
     <ErrorReport>prompt</ErrorReport>
     <WarningLevel>4</WarningLevel>
   </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)' == 'Debug-Server|AnyCPU'">
+    <DebugSymbols>true</DebugSymbols>
+    <OutputPath>bin\Debug-Server\</OutputPath>
+    <DefineConstants>DEBUG;TRACE</DefineConstants>
+    <DebugType>full</DebugType>
+    <PlatformTarget>AnyCPU</PlatformTarget>
+    <LangVersion>7.3</LangVersion>
+    <ErrorReport>prompt</ErrorReport>
+    <CodeAnalysisRuleSet>MinimumRecommendedRules.ruleset</CodeAnalysisRuleSet>
+    <Prefer32Bit>true</Prefer32Bit>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)' == 'Debug-Client|AnyCPU'">
+    <DebugSymbols>true</DebugSymbols>
+    <OutputPath>bin\Debug-Client\</OutputPath>
+    <DefineConstants>DEBUG;TRACE</DefineConstants>
+    <DebugType>full</DebugType>
+    <PlatformTarget>AnyCPU</PlatformTarget>
+    <LangVersion>7.3</LangVersion>
+    <ErrorReport>prompt</ErrorReport>
+    <CodeAnalysisRuleSet>MinimumRecommendedRules.ruleset</CodeAnalysisRuleSet>
+    <Prefer32Bit>true</Prefer32Bit>
+  </PropertyGroup>
   <ItemGroup>
     <Reference Include="System" />
     <Reference Include="System.Core" />
@@ -45,11 +67,14 @@
   <ItemGroup>
     <Compile Include="BlockSharing\BlockShareClient.cs" />
     <Compile Include="BlockSharing\BlockShareServer.cs" />
+    <Compile Include="BlockSharing\Command.cs" />
     <Compile Include="BlockSharing\FileHashBlock.cs" />
     <Compile Include="BlockSharing\FileHashList.cs" />
     <Compile Include="BlockSharing\FileHashListGenerator.cs" />
+    <Compile Include="BlockSharing\FileSystemEntryType.cs" />
     <Compile Include="BlockSharing\ILogger.cs" />
     <Compile Include="BlockSharing\IProgressReporter.cs" />
+    <Compile Include="BlockSharing\NetStat.cs" />
     <Compile Include="BlockSharing\Preferences.cs" />
     <Compile Include="BlockSharing\Utils.cs" />
     <Compile Include="Program.cs" />

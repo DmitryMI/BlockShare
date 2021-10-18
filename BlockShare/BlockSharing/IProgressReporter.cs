@@ -8,7 +8,9 @@ namespace BlockShare.BlockSharing
 {
     public interface IProgressReporter
     {
-        void ReportProgress(object sender, double progress);
-        void ReportFinishing(object sender, bool success);
+        void ReportProgress(object sender,double progress, int jobId);
+        void ReportFinishing(object sender, bool success, int jobId);
+        void ReportOverallProgress(object sender, double progress);
+        void ReportOverallFinishing(object sender, bool success);
     }
 }
