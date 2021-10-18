@@ -74,24 +74,39 @@ namespace BlockShare
 
         static void Main(string[] args)
         {
-            if (args.Length < 4)
+            if (args.Length == 0)
             {
-                Console.WriteLine("[1] Mode: server/client");
-                Console.WriteLine("[2] Ip: server bind/client connect");
-                Console.WriteLine("[3] Port: server bind/client connect");
-                Console.WriteLine("[4] Storage path");
-                Console.WriteLine("[5] (For client only) File name");
-
+                Console.WriteLine("[1] BlockSharing.exe dehash <path>");
+                Console.WriteLine("[2] BlockSharing.exe client <server-ip> <server-port> <storage path> [remote file]");
+                Console.WriteLine("[3] BlockSharing.exe server <bind-ip> <bind-port> <storage path>");
                 return;
-            }         
+            }
+
+            string storagePath;
 
             string mode = args[0];
-            string ip = args[1];
-            string portStr = args[2];
-            string storagePath = args[3];
+            if (mode == "dehash")
+            {
+                 storagePath = args[1];
+                 if (!Directory.Exists(storagePath))
+                 {
+                    Console.WriteLine($"Directory {storagePath} does not exist");
+                 }
+
+                 Utils.Dehash(storagePath);
+                 return;
+            }
+
+            string ip;
+            string portStr;
             string fileName = String.Empty;
+
             if (mode == "client")
             {
+                ip = args[1];
+                portStr = args[2];
+                storagePath = args[3];
+
                 if (args.Length == 5)
                 {
                     fileName = args[4];
@@ -101,6 +116,17 @@ namespace BlockShare
                     Console.Write("File name: ");
                     fileName = Console.ReadLine();
                 }
+            }
+            else if (mode == "server")
+            {
+                ip = args[1];
+                portStr = args[2];
+                storagePath = args[3];
+            }
+            else
+            {
+                Console.WriteLine($"Unknown mode: {mode}");
+                return;
             }
 
             Preferences preferences = new Preferences();

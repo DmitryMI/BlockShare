@@ -172,5 +172,19 @@ namespace BlockShare.BlockSharing
 
             return path1.Equals(path2);
         }
+
+        public static void Dehash(string path)
+        {
+            void EnumerateFile(string file)
+            {
+                if (file.EndsWith(".hashlist"))
+                {
+                    Console.WriteLine($"Removing {file}...");
+                    File.Delete(file);
+                }
+            }
+
+            ForEachEntry(path, EnumerateFile);
+        }
     }
 }

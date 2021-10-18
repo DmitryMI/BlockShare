@@ -9,6 +9,7 @@ Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
 		Debug-Client|Any CPU = Debug-Client|Any CPU
+		Debug-Dehash|Any CPU = Debug-Dehash|Any CPU
 		Debug-Server|Any CPU = Debug-Server|Any CPU
 		Release|Any CPU = Release|Any CPU
 	EndGlobalSection
@@ -17,6 +18,8 @@ Global
 		{48394769-F3A1-48B1-8A74-639B5B06CF7B}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{48394769-F3A1-48B1-8A74-639B5B06CF7B}.Debug-Client|Any CPU.ActiveCfg = Debug-Client|Any CPU
 		{48394769-F3A1-48B1-8A74-639B5B06CF7B}.Debug-Client|Any CPU.Build.0 = Debug-Client|Any CPU
+		{48394769-F3A1-48B1-8A74-639B5B06CF7B}.Debug-Dehash|Any CPU.ActiveCfg = Debug-Dehash|Any CPU
+		{48394769-F3A1-48B1-8A74-639B5B06CF7B}.Debug-Dehash|Any CPU.Build.0 = Debug-Dehash|Any CPU
 		{48394769-F3A1-48B1-8A74-639B5B06CF7B}.Debug-Server|Any CPU.ActiveCfg = Debug-Server|Any CPU
 		{48394769-F3A1-48B1-8A74-639B5B06CF7B}.Debug-Server|Any CPU.Build.0 = Debug-Server|Any CPU
 		{48394769-F3A1-48B1-8A74-639B5B06CF7B}.Release|Any CPU.ActiveCfg = Release|Any CPU
