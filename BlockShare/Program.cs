@@ -156,10 +156,12 @@ namespace BlockShare
                     Console.WriteLine(files[i].Name);
                 }
 
+                Console.WriteLine();
+
                 Console.ForegroundColor = ConsoleColor.White;
 
                 Console.WriteLine("D X - Download X");
-                Console.WriteLine("E X - Enter X");
+                Console.WriteLine("E X or X - Enter X");
                 Console.WriteLine("U - Go up");
                 Console.WriteLine("Q - Quit browser");
 
@@ -188,14 +190,33 @@ namespace BlockShare
                         entryName = files[index - dirs.Length].RemoteFullPath;
                     }
                 }
+                else
+                {
+                    bool ok = int.TryParse(inputWords[0], out int enterIndex);
+                    if (ok)
+                    {
+                        if (enterIndex < dirs.Length)
+                        {
+                            entryName = dirs[enterIndex].RemoteFullPath;
+                        }
+                        else
+                        {
+                            entryName = files[enterIndex - dirs.Length].RemoteFullPath;
+                        }
+                        //remoteViewer.EnterFromCurrentDirectory(entryName);
+                        remoteViewer.EnterByAbsolutePath(entryName);
+                        continue;
+                    }
+                }
 
-                switch (inputWords[0])
+                switch (inputWords[0].ToUpper())
                 {
                     case "D":
                         Download(ip, portStr, preferences, clientLogger, entryName);
                         break;
                     case "E":
-                        remoteViewer.EnterFromCurrentDirectory(entryName);
+                        //remoteViewer.EnterFromCurrentDirectory(entryName);
+                        remoteViewer.EnterByAbsolutePath(entryName);
                         break;
                     case "U":
                         remoteViewer.GoUp();

@@ -20,11 +20,11 @@ namespace BlockShare.BlockSharing.RemoteFileSystem
 
         private void EnsureFilePathExists(string fullPath)
         {
-            if (fullPath[0] == PathSeparatorChar)
+            if (fullPath[0] == Path.DirectorySeparatorChar || fullPath[0] == Path.AltDirectorySeparatorChar)
             {
                 fullPath = fullPath.Remove(0, 1);
             }
-            if (fullPath[fullPath.Length - 1] == PathSeparatorChar)
+            if (fullPath[fullPath.Length - 1] == PathSeparatorChar || fullPath[fullPath.Length - 1] == Path.AltDirectorySeparatorChar)
             {
                 fullPath = fullPath.Remove(fullPath.Length - 1, 1);
             }
@@ -83,6 +83,39 @@ namespace BlockShare.BlockSharing.RemoteFileSystem
             return false;
         }
 
+        public bool EnterByAbsolutePath(string name)
+        {
+            if (name[0] == PathSeparatorChar)
+            {
+                name = name.Remove(0, 1);
+            }
+            if (name[name.Length - 1] == PathSeparatorChar)
+            {
+                name = name.Remove(name.Length - 1, 1);
+            }
+
+            string[] pathParts = name.Split(PathSeparatorChar);
+            RemoteDirectoryInfo dir = remoteRoot;
+            for (int i = 0; i < pathParts.Length; i++)
+            {
+                var childrenDirs = dir.EnumerateDirectories();
+                RemoteDirectoryInfo child = childrenDirs.FirstOrDefault(c => Utils.ArePathsEqual(c.Name, pathParts[i]));
+                if (child == null)
+                {
+                    return false;
+                }
+
+                dir = child;
+            }
+
+            if (dir != null)
+            {
+                currentDirectory = dir;
+            }
+
+            return false;
+        }
+
         public bool EnterFromCurrentDirectory(string name)
         {
             if (name[0] == PathSeparatorChar)
@@ -99,7 +132,7 @@ namespace BlockShare.BlockSharing.RemoteFileSystem
             for (int i = 0; i < pathParts.Length; i++)
             {
                 var childrenDirs = dir.EnumerateDirectories();
-                RemoteDirectoryInfo child = childrenDirs.First(c => c.Name == pathParts[i]);
+                RemoteDirectoryInfo child = childrenDirs.FirstOrDefault(c => Utils.ArePathsEqual(c.Name, pathParts[i]));
                 if (child == null)
                 {
                     return false;
