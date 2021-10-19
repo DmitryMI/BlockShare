@@ -6,6 +6,7 @@ using System.IO;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
+using BlockShare.BlockSharing.RemoteFileSystem;
 
 namespace BlockShare
 {
@@ -72,13 +73,147 @@ namespace BlockShare
             }
         }
 
+        static void Download(string ip, string portStr, Preferences preferences, ILogger clientLogger, string fileName)
+        {
+            if (fileName[0] == Path.DirectorySeparatorChar || fileName[0] == Path.AltDirectorySeparatorChar)
+            {
+                fileName = fileName.Remove(0, 1);
+            }
+
+            BlockShareClient client = new BlockShareClient(preferences, clientLogger);
+
+            int port = int.Parse(portStr);
+            Stopwatch sw = Stopwatch.StartNew();
+            client.DownloadFile(ip, port, fileName, new ConsoleProgressReporter("Hashing: "), new ConsoleProgressReporter("Downloading: "));
+            sw.Stop();
+            long millis = sw.ElapsedMilliseconds;
+            if (File.Exists(fileName))
+            {
+                Console.WriteLine($"File {fileName} was downloaded");
+            }
+            else if (Directory.Exists(fileName))
+            {
+                Console.WriteLine($"Directory {fileName} was downloaded");
+            }
+            else
+            {
+                Console.WriteLine("Nothing was downloaded");
+            }
+
+            NetStat clientNetStat = client.GetClientNetStat;
+
+            if (clientNetStat.TotalReceived == 0)
+            {
+                Console.WriteLine("No useful data was received during this session");
+            }
+            else
+            {
+                double efficiency = (double)clientNetStat.Payload /
+                                    (clientNetStat.TotalSent + clientNetStat.TotalReceived);
+                double downloadingSpeed = (double)clientNetStat.TotalReceived / (millis / 1000.0f);
+                double efficiencyPercent = efficiency * 100.0f;
+                double downloadingSpeedMibS = downloadingSpeed / 1024 / 1024;
+                Console.WriteLine($"Efficiency: {efficiencyPercent}%");
+                Console.WriteLine($"Speed: {downloadingSpeedMibS} MiB/s");
+            }
+        }
+
+        static void Browser(RemoteFileSystemViewer remoteViewer, string ip, string portStr, Preferences preferences, ILogger clientLogger, string fileName)
+        {
+            while (true)
+            {
+                Console.Clear();
+                Console.ForegroundColor = ConsoleColor.White;
+                Console.WriteLine($"Current directory: {remoteViewer.CurrentDirectory.RemoteFullPath}\n");
+                
+                Console.WriteLine("Directories: \n");
+                var dirs = remoteViewer.ListCurrentSubDirectories();
+                if (dirs.Length == 0)
+                {
+                    Console.ForegroundColor = ConsoleColor.DarkGray;
+                    Console.WriteLine("NO DIRECTORIES");
+                }
+                for (int i = 0; i < dirs.Length; i++)
+                {
+                    Console.ForegroundColor = ConsoleColor.Green;
+                    Console.Write($"{i}. ");
+                    Console.ForegroundColor = ConsoleColor.Gray;
+                    Console.WriteLine(dirs[i].Name);
+                }
+
+                Console.WriteLine("\nFiles: \n");
+                var files = remoteViewer.ListCurrentFiles();
+                if (files.Length == 0)
+                {
+                    Console.ForegroundColor = ConsoleColor.DarkGray;
+                    Console.WriteLine("NO FILES");
+                }
+                for (int i = 0; i < files.Length; i++)
+                {
+                    Console.ForegroundColor = ConsoleColor.Green;
+                    Console.Write($"{dirs.Length + i}. ");
+                    Console.ForegroundColor = ConsoleColor.Gray;
+                    Console.WriteLine(files[i].Name);
+                }
+
+                Console.ForegroundColor = ConsoleColor.White;
+
+                Console.WriteLine("D X - Download X");
+                Console.WriteLine("E X - Enter X");
+                Console.WriteLine("U - Go up");
+                Console.WriteLine("Q - Quit browser");
+
+                string input = Console.ReadLine();
+                if (input == null)
+                {
+                    continue;
+                }
+                string[] inputWords = input.Split(' ');
+
+                string entryName = string.Empty;
+                if (inputWords.Length == 2)
+                {
+                    bool ok = int.TryParse(inputWords[1], out int index);
+                    if (!ok)
+                    {
+                        continue;
+                    }
+
+                    if (index < dirs.Length)
+                    {
+                        entryName = dirs[index].RemoteFullPath;
+                    }
+                    else
+                    {
+                        entryName = files[index - dirs.Length].RemoteFullPath;
+                    }
+                }
+
+                switch (inputWords[0])
+                {
+                    case "D":
+                        Download(ip, portStr, preferences, clientLogger, entryName);
+                        break;
+                    case "E":
+                        remoteViewer.EnterFromCurrentDirectory(entryName);
+                        break;
+                    case "U":
+                        remoteViewer.GoUp();
+                        break;
+                    case "Q":
+                        return;
+                }
+            }
+        }
+
         static void Main(string[] args)
         {
             if (args.Length == 0)
             {
                 Console.WriteLine("[1] BlockSharing.exe dehash <path>");
                 Console.WriteLine("[2] BlockSharing.exe client <server-ip> <server-port> <storage path> [remote file]");
-                Console.WriteLine("[3] BlockSharing.exe server <bind-ip> <bind-port> <storage path>");
+                Console.WriteLine("[3] BlockSharing.exe browser <server-ip> <server-port> <storage path> [starting dir]");
+                Console.WriteLine("[4] BlockSharing.exe server <bind-ip> <bind-port> <storage path>");
                 return;
             }
 
@@ -117,6 +252,17 @@ namespace BlockShare
                     fileName = Console.ReadLine();
                 }
             }
+            else if (mode == "browser")
+            {
+                ip = args[1];
+                portStr = args[2];
+                storagePath = args[3];
+
+                if (args.Length == 5)
+                {
+                    fileName = args[4];
+                }
+            }
             else if (mode == "server")
             {
                 ip = args[1];
@@ -144,41 +290,22 @@ namespace BlockShare
             
             if(mode == "client")
             {
-                BlockShareClient client = new BlockShareClient(preferences, clientLogger);                
-                
+                Download(ip, portStr, preferences, clientLogger, fileName);
+            }
+
+            if (mode == "browser")
+            {
+                BlockShareClient client = new BlockShareClient(preferences, clientLogger);
+
                 int port = int.Parse(portStr);
-                Stopwatch sw = Stopwatch.StartNew();
-                client.DownloadFile(ip, port, fileName, new ConsoleProgressReporter("Hashing: "), new ConsoleProgressReporter("Downloading: "));
-                sw.Stop();
-                long millis = sw.ElapsedMilliseconds;
-                if (File.Exists(fileName))
+                RemoteFileSystemViewer remoteViewer = client.Browse(ip, port, fileName);
+                if (remoteViewer != null)
                 {
-                    Console.WriteLine($"File {fileName} was downloaded");
-                }
-                else if (Directory.Exists(fileName))
-                {
-                    Console.WriteLine($"Directory {fileName} was downloaded");
+                    Browser(remoteViewer, ip, portStr, preferences, clientLogger, fileName);
                 }
                 else
                 {
-                    Console.WriteLine("Nothing was downloaded");
-                }
-
-                NetStat clientNetStat = client.GetClientNetStat;
-
-                if (clientNetStat.TotalReceived == 0)
-                {
-                    Console.WriteLine("No useful data was received during this session");
-                }
-                else
-                {
-                    double efficiency = (double) clientNetStat.Payload /
-                                        (clientNetStat.TotalSent + clientNetStat.TotalReceived);
-                    double downloadingSpeed = (double) clientNetStat.TotalReceived / (millis / 1000.0f);
-                    double efficiencyPercent = efficiency * 100.0f;
-                    double downloadingSpeedMibS = downloadingSpeed / 1024 / 1024;
-                    Console.WriteLine($"Efficiency: {efficiencyPercent}%");
-                    Console.WriteLine($"Speed: {downloadingSpeedMibS} MiB/s");
+                    Console.WriteLine("Error during receiving remote file system info");
                 }
             }
 

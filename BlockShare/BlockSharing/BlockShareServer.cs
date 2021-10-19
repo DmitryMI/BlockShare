@@ -326,12 +326,21 @@ namespace BlockShare.BlockSharing
         private void ClientAcceptedMethod(object clientObj)
         {
             TcpClient client = (TcpClient) clientObj;
-
-            Logger?.Log($"Client accepted from {client.Client.RemoteEndPoint}");
-
-            while (client.Connected)
+            using (client)
             {
-                ClientLoop(client);
+                Logger?.Log($"Client accepted from {client.Client.RemoteEndPoint}");
+
+                try
+                {
+                    while (client.Connected)
+                    {
+                        ClientLoop(client);
+                    }
+                }
+                catch (Exception ex)
+                {
+                    Console.WriteLine(ex.Message);
+                }
             }
         }
     }

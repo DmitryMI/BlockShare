@@ -6,6 +6,7 @@ using System.Net.Sockets;
 using System.Text;
 using System.Threading.Tasks;
 using System.Xml;
+using BlockShare.BlockSharing.RemoteFileSystem;
 using Microsoft.SqlServer.Server;
 
 namespace BlockShare.BlockSharing
@@ -307,6 +308,65 @@ namespace BlockShare.BlockSharing
             DownloadFileInternal(networkStream, fileName, localHashProgress, downloadProgress, 0);
             
             tcpClient.Close();
+        }
+
+        public RemoteFileSystemViewer Browse(string serverIp, int serverPort, string directory)
+        {
+            tcpClient = new TcpClient();
+            tcpClient.Connect(serverIp, serverPort);
+
+            Log($"Connected to server {serverIp} {serverPort}", 0);
+
+            NetworkStream networkStream = tcpClient.GetStream();
+
+            byte[] fileNameBytes = Encoding.UTF8.GetBytes(directory);
+            int fileNameLength = fileNameBytes.Length;
+            byte[] fileNameLengthBytes = BitConverter.GetBytes(fileNameLength);
+
+            NetworkWrite(networkStream, fileNameLengthBytes, 0, fileNameLengthBytes.Length);
+            NetworkWrite(networkStream, fileNameBytes, 0, fileNameBytes.Length);
+
+            Log($"Requested {directory}", 0);
+
+            byte[] entryTypeMessage = new byte[1];
+            NetworkRead(networkStream, entryTypeMessage, 0, entryTypeMessage.Length, 0);
+            FileSystemEntryType entryType = (FileSystemEntryType) entryTypeMessage[0];
+            switch (entryType)
+            {
+                case FileSystemEntryType.NonExistent:
+                    Log("Server refused to send requested entry, because it does not exist", 0);
+                    tcpClient.Close();
+                    return null;
+                case FileSystemEntryType.File:
+                    Log("Server reported, requested entry is a file", 0);
+                    
+                    tcpClient.Close();
+                    return null;
+                    break;
+                case FileSystemEntryType.Directory:
+                    Log("Server reported, requested entry is a directory", 0);
+                    break;
+                default:
+                    throw new ArgumentOutOfRangeException(nameof(entryType), "Unknown File System Entry Type");
+            }
+
+            byte[] digestSizeBytes = new byte[sizeof(int)];
+            NetworkRead(networkStream, digestSizeBytes, 0, digestSizeBytes.Length, 0);
+            int digestSize = BitConverter.ToInt32(digestSizeBytes, 0);
+            Log($"Digest length: {digestSize}", 0);
+            byte[] xmlDirectoryDigestBytes = new byte[digestSize];
+            NetworkRead(networkStream, xmlDirectoryDigestBytes, 0, xmlDirectoryDigestBytes.Length, 0);
+            string xmlDirectoryDigest = Encoding.UTF8.GetString(xmlDirectoryDigestBytes);
+            Log($"Digest received", 0);
+            XmlDocument xmlDocument = new XmlDocument();
+            xmlDocument.LoadXml(xmlDirectoryDigest);
+            Log($"Digest parsed to xml-dom", 0);
+
+            tcpClient.Close();
+
+            string[] fileNames = Utils.GetFileNamesFromDigest(xmlDocument);
+
+            return new RemoteFileSystemViewer(fileNames);
         }
     }    
 }
