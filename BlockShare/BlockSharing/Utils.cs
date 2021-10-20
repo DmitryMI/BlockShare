@@ -50,12 +50,12 @@ namespace BlockShare.BlockSharing
             return builder.ToString();
         }
 
-        private static void ForEachEntry(string root, Action<string> action)
+        public static void ForEachFsEntry<T>(string root, T state, Action<string, T> action)
         {
             if (File.Exists(root))
             {
                 //Console.WriteLine($"[UTILS] Enumerated: {root}");
-                action(root);
+                action(root, state);
             }
             else if (Directory.Exists(root))
             {
@@ -63,14 +63,14 @@ namespace BlockShare.BlockSharing
                 var dirs = Directory.EnumerateDirectories(root);
                 foreach (var dir in dirs)
                 {
-                    ForEachEntry(dir, action);
+                    ForEachFsEntry(dir, state, action);
                 }
 
                 var files = Directory.EnumerateFiles(root);
                 foreach (var file in files)
                 {
                     //Console.WriteLine($"[UTILS] Enumerated: {file}");
-                    action(file);
+                    action(file, state);
                 }
             }
         }
@@ -94,7 +94,7 @@ namespace BlockShare.BlockSharing
 
             List<string> filesInDirectory = new List<string>();
 
-            void AddFileToList(string file)
+            void AddFileToList(string file, object notInUse)
             {
                 if (file.EndsWith(Preferences.HashlistExtension))
                 {
@@ -108,7 +108,7 @@ namespace BlockShare.BlockSharing
                 filesInDirectory.Add(file);
             }
 
-            ForEachEntry(directoryInfo.FullName, AddFileToList);
+            ForEachFsEntry<object>(directoryInfo.FullName, null, AddFileToList);
 
             //Console.WriteLine($"[UTILS] All files enumerated. Generating xml...");
 
@@ -176,7 +176,7 @@ namespace BlockShare.BlockSharing
 
         public static void Dehash(string path)
         {
-            void EnumerateFile(string file)
+            void EnumerateFile(string file, object notInUse)
             {
                 if (file.EndsWith(Preferences.HashlistExtension) || file.EndsWith(Preferences.HashpartExtension))
                 {
@@ -185,7 +185,7 @@ namespace BlockShare.BlockSharing
                 }
             }
 
-            ForEachEntry(path, EnumerateFile);
+            ForEachFsEntry<object>(path, null, EnumerateFile);
         }
 
         public static string ToSafeBase64(byte[] toEncodeAsBytes)

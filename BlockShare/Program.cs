@@ -119,6 +119,66 @@ namespace BlockShare
             }
         }
 
+        static void PrehashFile(string filePath, Preferences preferences)
+        {
+            if (!File.Exists(filePath))
+            {
+                return;
+            }
+
+            using (FileStream fileStream = new FileStream(filePath, FileMode.Open, FileAccess.Read))
+            {
+                //string fileHashListName = fileName + Preferences.HashlistExtension;
+                string fileHashListPath = preferences.HashMapper.GetHashlistFile(filePath);
+                //Log($"Hashlist file name: {fileHashListName}", 2);
+
+                byte[] hashListSerialized = null;
+
+                Console.WriteLine($"Hashing {filePath}...");
+
+                //string fileHashListPath = Path.Combine(preferences.ServerStoragePath, fileHashListName);
+                FileHashList hashList;
+                if (!File.Exists(fileHashListPath))
+                {
+                    hashList = FileHashListGenerator.GenerateHashList(fileStream, null, preferences,
+                        null);
+                    hashListSerialized = hashList.Serialize();
+                    using (FileStream fileHashListStream =
+                        new FileStream(fileHashListPath, FileMode.CreateNew, FileAccess.Write))
+                    {
+                        fileHashListStream.Write(hashListSerialized, 0, hashListSerialized.Length);
+                    }
+                }
+                else
+                {
+                    using (FileStream fileHashListStream =
+                        new FileStream(fileHashListPath, FileMode.Open, FileAccess.Read))
+                    {
+                        hashListSerialized = new byte[fileHashListStream.Length];
+                        fileHashListStream.Read(hashListSerialized, 0, (int) fileHashListStream.Length);
+                    }
+                }
+            }
+        }
+
+        static void Prehash(Preferences preferences)
+        {
+            if (File.Exists(preferences.ServerStoragePath))
+            {
+                PrehashFile(preferences.ServerStoragePath, preferences);
+            }
+            else if (Directory.Exists(preferences.ServerStoragePath))
+            {
+                Utils.ForEachFsEntry<Preferences>(preferences.ServerStoragePath, preferences, PrehashFile);
+            }
+            else
+            {
+                Console.WriteLine($"File or Directory {preferences.ServerStoragePath} does not exist");
+            }
+
+            Console.WriteLine("Prehashing finished");
+        }
+
         static void Browser(RemoteFileSystemViewer remoteViewer, string ip, string portStr, Preferences preferences, ILogger clientLogger, string fileName)
         {
             while (true)
@@ -235,11 +295,17 @@ namespace BlockShare
             if (args.Length == 0)
             {
                 Console.WriteLine("[1] BlockSharing.exe dehash <path>");
-                Console.WriteLine("[2] BlockSharing.exe client <server-ip> <server-port> <storage path> [remote file]");
-                Console.WriteLine("[3] BlockSharing.exe browser <server-ip> <server-port> <storage path> [starting dir]");
-                Console.WriteLine("[4] BlockSharing.exe server <bind-ip> <bind-port> <storage path>");
+                Console.WriteLine("[2] BlockSharing.exe prehash <path>");
+                Console.WriteLine("[3] BlockSharing.exe client <server-ip> <server-port> <storage path> [remote file]");
+                Console.WriteLine("[4] BlockSharing.exe browser <server-ip> <server-port> <storage path> [starting dir]");
+                Console.WriteLine("[5] BlockSharing.exe server <bind-ip> <bind-port> <storage path>");
                 return;
             }
+
+            string startupDir = AppDomain.CurrentDomain.BaseDirectory;
+            string hashpartStorage = Path.Combine(startupDir, "BlockShare-Hashparts");
+            string hashlistStorage = Path.Combine(startupDir, "BlockShare-Hashlists");
+            HashMapper hashMapper = new ShaHashMapper(hashpartStorage, hashlistStorage);
 
             string storagePath;
 
@@ -254,6 +320,19 @@ namespace BlockShare
 
                  Utils.Dehash(storagePath);
                  return;
+            }
+
+            if (mode == "prehash")
+            {
+                storagePath = args[1];
+
+                Preferences prehashPreferences = new Preferences();
+                prehashPreferences.ServerStoragePath = storagePath;
+                prehashPreferences.HashMapper = hashMapper;
+
+                Prehash(prehashPreferences);
+
+                return;
             }
 
             string ip;
@@ -304,12 +383,10 @@ namespace BlockShare
             preferences.ClientStoragePath = storagePath;
             ConsoleLogger serverLogger = new ConsoleLogger("[SERVER]");
             ConsoleLogger clientLogger = new ConsoleLogger("[CLIENT]");
-            string startupDir = AppDomain.CurrentDomain.BaseDirectory;
-            string hashpartStorage = Path.Combine(startupDir, "BlockShare-Hashparts");
-            string hashlistStorage = Path.Combine(startupDir, "BlockShare-Hashlists");
-            preferences.HashMapper = new ShaHashMapper(hashpartStorage, hashlistStorage);
 
-            if(mode == "server")
+            preferences.HashMapper = hashMapper;
+
+            if (mode == "server")
             {
                 int port = int.Parse(portStr);
                 BlockShareServer server = new BlockShareServer(ip, port, preferences, new ConsoleProgressReporter("Hashing: "), serverLogger);
