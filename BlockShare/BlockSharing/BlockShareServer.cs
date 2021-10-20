@@ -26,6 +26,14 @@ namespace BlockShare.BlockSharing
         private NetStat serverNetStat = new NetStat();
         private NetStat GetServerNetStat => serverNetStat.CloneNetStat();
 
+        private void Log(string message, int withVerbosity)
+        {
+            if (withVerbosity <= preferences.Verbosity)
+            {
+                Logger?.Log(message);
+            }
+        }
+
         public BlockShareServer(string ip, int port, Preferences preferences, IProgressReporter hashProgress, ILogger logger)
         {
             HashListGeneratorReporter = hashProgress;
@@ -36,14 +44,14 @@ namespace BlockShare.BlockSharing
 
         public void StartServer()
         {
-            Logger?.Log($"Starting server on {localEndpoint}...");
+            Log($"Starting server on {localEndpoint}...", 0);
             tcpListener = new TcpListener(localEndpoint);
             tcpListener.Start();
 
             worker = new Task(WorkingMethod);
             worker.Start();
 
-            Logger?.Log($"Server is now listening on {localEndpoint}");
+            Log($"Server is now listening on {localEndpoint}", 0);
         }
 
         private void NetworkWrite(NetworkStream stream, byte[] data, int offset, int length)
@@ -62,6 +70,7 @@ namespace BlockShare.BlockSharing
         {
             while (true)
             {
+                Log("TcpListener is waiting for next client...", 0);
                 TcpClient client = tcpListener.AcceptTcpClient();
                 Task task = new Task(ClientAcceptedMethod, client);
                 task.Start();
@@ -72,7 +81,7 @@ namespace BlockShare.BlockSharing
         {
             if (String.IsNullOrWhiteSpace(requestedEntry))
             {
-                Logger?.Log("Requested Entry is empty");
+                Log("Requested Entry is empty", 0);
                 return false;
             }
 
@@ -92,7 +101,7 @@ namespace BlockShare.BlockSharing
             }
             else
             {
-                Logger?.Log($"Error: file or directory {requestedEntry} does not exist");
+                Log($"Error: file or directory {requestedEntry} does not exist", 0);
                 return false;
             }
             DirectoryInfo rootDirectoryInfo = new DirectoryInfo(preferences.ServerStoragePath);
@@ -117,7 +126,7 @@ namespace BlockShare.BlockSharing
 
             if (!isInsideRoot)
             {
-                Logger?.Log($"Security error: {entryInfo.FullName} is not inside Server Folder");
+                Log($"Security error: {entryInfo.FullName} is not inside Server Folder", 0);
                 return false;
             }
 
@@ -152,23 +161,19 @@ namespace BlockShare.BlockSharing
         {
             NetworkStream networkStream = client.GetStream();
 
-            Logger?.Log($"Waiting for file request from {client.Client.RemoteEndPoint}...");
+            Log($"Waiting for file request from {client.Client.RemoteEndPoint}...", 1);
 
             byte[] fileNameLengthBytes = new byte[sizeof(int)];
 
             Utils.ReadPackage(networkStream, fileNameLengthBytes, 0, sizeof(int), 10000);
 
             int fileNameLength = BitConverter.ToInt32(fileNameLengthBytes, 0);
-            Logger?.Log($"Client request name length received: {fileNameLength}");
             byte[] fileNameBytes = new byte[fileNameLength];
 
             NetworkRead(networkStream, fileNameBytes, 0, fileNameLength, 10000);
-            Logger?.Log($"Client request bytes received");
 
             string fileName = Encoding.UTF8.GetString(fileNameBytes);
-            Logger?.Log($"Name decoded: {fileName}");
             string filePath = null;
-            Logger?.Log($"Combining {preferences.ServerStoragePath} with {fileName}");
 
             try
             {
@@ -176,18 +181,18 @@ namespace BlockShare.BlockSharing
             }
             catch (ArgumentNullException argEx)
             {
-                Logger?.Log("Argument was null: \n" + argEx.Message);
+                Log("Argument was null: \n" + argEx.Message, 0);
             }
             catch (ArgumentException ex)
             {
-                Logger?.Log("Argument exception occured: \n" + ex.Message);
+                Log("Argument exception occured: \n" + ex.Message, 0);
 
                 // Stupid workaround
                 filePath = PathCombineWorkaround(preferences.ServerStoragePath, fileName);
-                Logger?.Log($"Using workaround for stupid Path.Combine: {filePath}");
+                Log($"Using workaround for stupid Path.Combine: {filePath}", 0);
             }
 
-            Logger?.Log($"Client request received: {fileName}");
+            Log($"Client request received: {fileName}", 0);
 
             byte[] entryTypeMessage;
 
@@ -203,12 +208,12 @@ namespace BlockShare.BlockSharing
 
             if (Directory.Exists(filePath))
             {
-                Logger?.Log("Directory was requested. Generating XML digest...");
+                Log("Directory was requested. Generating XML digest...", 0);
                 DirectoryInfo directoryInfo = new DirectoryInfo(filePath);
                 DirectoryInfo rootDirectoryInfo = new DirectoryInfo(preferences.ServerStoragePath);
                 string xmlDigest = Utils.GenerateDirectoryDigest(directoryInfo, rootDirectoryInfo);
 
-                Logger?.Log($"Digest generated. Length: {xmlDigest.Length}");
+                Log($"Digest generated. Length: {xmlDigest.Length}", 2);
 
                 byte[] xmlDigestBytes = Encoding.UTF8.GetBytes(xmlDigest);
                 int digestLength = xmlDigestBytes.Length;
@@ -216,15 +221,14 @@ namespace BlockShare.BlockSharing
 
                 entryTypeMessage = new byte[] { (byte)FileSystemEntryType.Directory };
                 NetworkWrite(networkStream, entryTypeMessage, 0, entryTypeMessage.Length);
-                Logger?.Log($"Entry type message sent: {FileSystemEntryType.Directory}");
 
                 NetworkWrite(networkStream, digestLengthBytes, 0, digestLengthBytes.Length);
-                Logger?.Log($"Digest Length sent");
+
                 NetworkWrite(networkStream, xmlDigestBytes, 0, xmlDigestBytes.Length);
-                Logger?.Log($"Digest sent.");
+                Log($"Digest sent.", 0);
 
                 //client.Close();
-                //Logger?.Log($"Connection closed");
+                //Log($"Connection closed");
                 return;
             }
 
@@ -234,18 +238,18 @@ namespace BlockShare.BlockSharing
             using (FileStream fileStream = new FileStream(filePath, FileMode.Open, FileAccess.Read))
             {
                 string fileHashListName = fileName + ".hashlist";
-                Logger?.Log($"Hashlist file name: {fileHashListName}");
+                Log($"Hashlist file name: {fileHashListName}", 2);
 
                 byte[] hashListSerialized = null;
 
-                Logger?.Log($"On-server file size: {fileStream.Length}");
+                Log($"On-server file size: {fileStream.Length}", 2);
 
                 string fileHashListPath = Path.Combine(preferences.ServerStoragePath, fileHashListName);
                 FileHashList hashList;
                 if (!File.Exists(fileHashListPath))
                 {
-                    Logger?.Log(
-                        $"Calculating hash list for file {filePath} by request of {client.Client.RemoteEndPoint}...");
+                    Log(
+                        $"Calculating hash list for file {filePath} by request of {client.Client.RemoteEndPoint}...", 2);
                     hashList = FileHashListGenerator.GenerateHashList(fileStream, null, preferences,
                         HashListGeneratorReporter);
                     hashListSerialized = hashList.Serialize();
@@ -257,8 +261,8 @@ namespace BlockShare.BlockSharing
                 }
                 else
                 {
-                    Logger?.Log(
-                        $"Reading hash list of file {filePath} by request of {client.Client.RemoteEndPoint}...");
+                    Log(
+                        $"Reading hash list of file {filePath} by request of {client.Client.RemoteEndPoint}...", 2);
                     using (FileStream fileHashListStream =
                         new FileStream(fileHashListPath, FileMode.Open, FileAccess.Read))
                     {
@@ -274,7 +278,7 @@ namespace BlockShare.BlockSharing
                 NetworkWrite(networkStream, hashListLengthBytes, 0, hashListLengthBytes.Length);
 
                 NetworkWrite(networkStream, hashListSerialized, 0, hashListSerialized.Length);
-                Logger?.Log($"Hash list for file {filePath} sent to {client.Client.RemoteEndPoint}.");
+                Log($"Hash list for file {filePath} sent to {client.Client.RemoteEndPoint}.", 1);
 
                 byte[] blockRequestBytes = new byte[sizeof(int)];
                 byte[] blockBytes = new byte[preferences.BlockSize];
@@ -286,6 +290,7 @@ namespace BlockShare.BlockSharing
                     Command command = (Command)commandByte;
                     if (command == Command.Terminate)
                     {
+                        Log("Transmission terminated by client request", 0);
                         break;
                     }
 
@@ -312,14 +317,14 @@ namespace BlockShare.BlockSharing
                         }
 
                         fileStream.Read(blockBytes, 0, blockSize);
-                        FileHashBlock localBlock =
-                            FileHashListGenerator.CalculateBlock(blockBytes, 0, blockSize, preferences, i);
+                        //FileHashBlock localBlock =
+                        //FileHashListGenerator.CalculateBlock(blockBytes, 0, blockSize, preferences, i);
                         NetworkWrite(networkStream, blockBytes, 0, blockSize);
                         serverNetStat.Payload += (ulong)(blockRequestBytes.Length);
                     }
                 }
 
-                Logger?.Log($"Client {client.Client.RemoteEndPoint} disconnected");
+                Log($"Client {client.Client.RemoteEndPoint} disconnected", 0);
             }
         }
 
@@ -328,7 +333,7 @@ namespace BlockShare.BlockSharing
             TcpClient client = (TcpClient) clientObj;
             using (client)
             {
-                Logger?.Log($"Client accepted from {client.Client.RemoteEndPoint}");
+                Log($"Client accepted from {client.Client.RemoteEndPoint}", 0);
 
                 try
                 {

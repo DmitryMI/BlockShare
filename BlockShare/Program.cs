@@ -69,7 +69,7 @@ namespace BlockShare
                     return;
                 }
                 previousProgressList[jobId] = progress;
-                Console.WriteLine(message + $"(job {jobId}: {progress*100.0:0.00}");
+                Console.WriteLine(message + $"(job {jobId}): {progress*100.0:0.00}");
             }
         }
 
@@ -213,6 +213,8 @@ namespace BlockShare
                 {
                     case "D":
                         Download(ip, portStr, preferences, clientLogger, entryName);
+                        Console.WriteLine("Press any key to return to Browser mode...");
+                        Console.ReadKey();
                         break;
                     case "E":
                         //remoteViewer.EnterFromCurrentDirectory(entryName);
