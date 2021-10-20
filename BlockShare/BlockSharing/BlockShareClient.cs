@@ -157,7 +157,7 @@ namespace BlockShare.BlockSharing
                     i += requestBlocksNumber;
 
                     Log(
-                        $"Requesting range {requestStartIndex}-{requestStartIndex + requestBlocksNumber}: {remoteBlock}", 2);
+                        $"Requesting range {requestStartIndex}-{requestStartIndex + requestBlocksNumber}: {remoteBlock}", 1);
                     NetworkWrite(networkStream, new byte[] { (byte)Command.NextBlock }, 0, 1);
                     byte[] requestStartIndexBytes = BitConverter.GetBytes(requestStartIndex);
                     NetworkWrite(networkStream, requestStartIndexBytes, 0, requestStartIndexBytes.Length);
