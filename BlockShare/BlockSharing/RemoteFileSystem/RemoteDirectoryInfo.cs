@@ -11,6 +11,24 @@ namespace BlockShare.BlockSharing.RemoteFileSystem
     {
         private readonly List<RemoteFileSystemEntryInfo> entries = new List<RemoteFileSystemEntryInfo>();
 
+
+        public long CalculateSize()
+        {
+            long size = 0;
+            foreach (var entry in entries)
+            {
+                if (entry is RemoteFileInfo fileInfo)
+                {
+                    size += fileInfo.Size;
+                }
+                else if (entry is RemoteDirectoryInfo dirInfo)
+                {
+                    size += dirInfo.CalculateSize();
+                }
+            }
+
+            return size;
+        }
         public IEnumerable<RemoteFileInfo> EnumerateFiles()
         {
             return entries.OfType<RemoteFileInfo>();

@@ -201,7 +201,11 @@ namespace BlockShare
                     Console.ForegroundColor = ConsoleColor.Green;
                     Console.Write($"{i}. ");
                     Console.ForegroundColor = ConsoleColor.Gray;
-                    Console.WriteLine(dirs[i].Name);
+                    Console.Write(dirs[i].Name);
+                    Console.Write($" ");
+                    Console.ForegroundColor = ConsoleColor.DarkGray;
+                    string sizeFormat = Utils.FormatByteSize(dirs[i].CalculateSize());
+                    Console.WriteLine($"({sizeFormat})");
                 }
 
                 Console.WriteLine("\nFiles: \n");
@@ -216,7 +220,11 @@ namespace BlockShare
                     Console.ForegroundColor = ConsoleColor.Green;
                     Console.Write($"{dirs.Length + i}. ");
                     Console.ForegroundColor = ConsoleColor.Gray;
-                    Console.WriteLine(files[i].Name);
+                    Console.Write(files[i].Name);
+                    Console.Write($" ");
+                    Console.ForegroundColor = ConsoleColor.DarkGray;
+                    string sizeFormat = Utils.FormatByteSize(files[i].Size);
+                    Console.WriteLine($"({sizeFormat})");
                 }
 
                 Console.WriteLine();

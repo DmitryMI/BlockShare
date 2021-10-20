@@ -79,6 +79,8 @@
     <Compile Include="BlockSharing\BlockShareClient.cs" />
     <Compile Include="BlockSharing\BlockShareServer.cs" />
     <Compile Include="BlockSharing\Command.cs" />
+    <Compile Include="BlockSharing\DirectoryDigesting\DirectoryDigest.cs" />
+    <Compile Include="BlockSharing\DirectoryDigesting\FileDigest.cs" />
     <Compile Include="BlockSharing\FileHashBlock.cs" />
     <Compile Include="BlockSharing\FileHashList.cs" />
     <Compile Include="BlockSharing\FileHashListGenerator.cs" />

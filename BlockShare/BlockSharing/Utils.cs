@@ -75,6 +75,7 @@ namespace BlockShare.BlockSharing
             }
         }
 
+        [Obsolete]
         public static string GenerateDirectoryDigest(DirectoryInfo directoryInfo, DirectoryInfo rootDirectoryInfo)
         {
             XmlDocument doc = new XmlDocument();
@@ -125,6 +126,7 @@ namespace BlockShare.BlockSharing
             return doc.OuterXml;
         }
 
+        [Obsolete]
         public static string[] GetFileNamesFromDigest(XmlDocument xmlDigest)
         {
             XmlElement directoryDigestElement = xmlDigest["DirectoryDigest"];
@@ -209,6 +211,29 @@ namespace BlockShare.BlockSharing
             byte[] bytes = Convert.FromBase64String(incoming);
 
             return bytes;
+        }
+
+        public static string FormatByteSize(long sizeInBytes)
+        {
+            if (sizeInBytes < 1024)
+            {
+                return $"{sizeInBytes} B";
+            }
+
+            if (sizeInBytes < 1024 * 1024)
+            {
+                double kib = sizeInBytes / 1024.0;
+                return $"{kib:F1} KiB";
+            }
+
+            if (sizeInBytes < 1024 * 1024 * 1024)
+            {
+                double mib = sizeInBytes / 1024.0 / 1024.0;
+                return $"{mib:F1} MiB";
+            }
+
+            double gib = sizeInBytes / 1024.0 / 1024.0 / 1024.0;
+            return $"{gib:F1} GiB";
         }
     }
 }

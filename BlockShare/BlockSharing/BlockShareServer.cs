@@ -6,6 +6,7 @@ using System.Net;
 using System.Net.Sockets;
 using System.Text;
 using System.Threading.Tasks;
+using BlockShare.BlockSharing.DirectoryDigesting;
 
 namespace BlockShare.BlockSharing
 {
@@ -211,11 +212,17 @@ namespace BlockShare.BlockSharing
                 Log("Directory was requested. Generating XML digest...", 0);
                 DirectoryInfo directoryInfo = new DirectoryInfo(filePath);
                 DirectoryInfo rootDirectoryInfo = new DirectoryInfo(preferences.ServerStoragePath);
-                string xmlDigest = Utils.GenerateDirectoryDigest(directoryInfo, rootDirectoryInfo);
-
+                //string xmlDigest = Utils.GenerateDirectoryDigest(directoryInfo, rootDirectoryInfo);
+                DirectoryDigest directoryDigest = new DirectoryDigest(directoryInfo, rootDirectoryInfo);
+                
+                /*
                 Log($"Digest generated. Length: {xmlDigest.Length}", 2);
 
                 byte[] xmlDigestBytes = Encoding.UTF8.GetBytes(xmlDigest);
+                int digestLength = xmlDigestBytes.Length;
+                byte[] digestLengthBytes = BitConverter.GetBytes(digestLength);
+                */
+                byte[] xmlDigestBytes = directoryDigest.Serialize();
                 int digestLength = xmlDigestBytes.Length;
                 byte[] digestLengthBytes = BitConverter.GetBytes(digestLength);
 

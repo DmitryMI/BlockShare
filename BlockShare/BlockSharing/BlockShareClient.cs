@@ -6,6 +6,7 @@ using System.Net.Sockets;
 using System.Text;
 using System.Threading.Tasks;
 using System.Xml;
+using BlockShare.BlockSharing.DirectoryDigesting;
 using BlockShare.BlockSharing.RemoteFileSystem;
 using Microsoft.SqlServer.Server;
 
@@ -267,31 +268,32 @@ namespace BlockShare.BlockSharing
                 Log($"Digest length: {digestSize}", 0);
                 byte[] xmlDirectoryDigestBytes = new byte[digestSize];
                 NetworkRead(networkStream, xmlDirectoryDigestBytes, 0, xmlDirectoryDigestBytes.Length, 0);
+                
+                /*
                 string xmlDirectoryDigest = Encoding.UTF8.GetString(xmlDirectoryDigestBytes);
                 Log($"Digest received", 0);
                 XmlDocument xmlDocument = new XmlDocument();
                 xmlDocument.LoadXml(xmlDirectoryDigest);
                 Log($"Digest parsed to xml-dom", 0);
+                */
 
-                string[] fileNames = Utils.GetFileNamesFromDigest(xmlDocument);
-                Log($"Files to load: {fileNames.Length}", 0);
-                for (var index = 0; index < fileNames.Length; index++)
+                DirectoryDigest directoryDigest = new DirectoryDigest(xmlDirectoryDigestBytes);
+
+                //string[] fileNames = Utils.GetFileNamesFromDigest(xmlDocument);
+                Log($"Files to load: {directoryDigest.Count}", 0);
+                for (var index = 0; index < directoryDigest.Count; index++)
                 {
-                    var name = fileNames[index];
-
-                    //tcpClient.Close();
-                    //tcpClient = new TcpClient();
-                    //tcpClient.Connect(serverIp, serverPort);
-                    //networkStream = tcpClient.GetStream();
-
-                    fileNameBytes = Encoding.UTF8.GetBytes(name);
+                    //var name = fileNames[index];
+                    FileDigest fileDigest = directoryDigest[index];
+                    
+                    fileNameBytes = Encoding.UTF8.GetBytes(fileDigest.RelativePath);
                     fileNameLength = fileNameBytes.Length;
                     fileNameLengthBytes = BitConverter.GetBytes(fileNameLength);
 
                     NetworkWrite(networkStream, fileNameLengthBytes, 0, fileNameLengthBytes.Length);
                     NetworkWrite(networkStream, fileNameBytes, 0, fileNameBytes.Length);
 
-                    Log($"Requested file {name}\nWaiting for entry type message...", 1);
+                    Log($"Requested file {fileDigest.RelativePath}\nWaiting for entry type message...", 1);
 
                     entryTypeMessage = new byte[1];
                     NetworkRead(networkStream, entryTypeMessage, 0, entryTypeMessage.Length, 0);
@@ -304,9 +306,9 @@ namespace BlockShare.BlockSharing
 
                     Log($"Entry type: {entryType}", 2);
 
-                    DownloadFileInternal(networkStream, name, localHashProgress, downloadProgress, index);
+                    DownloadFileInternal(networkStream, fileDigest.RelativePath, localHashProgress, downloadProgress, index);
 
-                    downloadProgress?.ReportOverallProgress(this, (double) index / fileNames.Length);
+                    downloadProgress?.ReportOverallProgress(this, (double) index / directoryDigest.Count);
                 }
 
                 return;
@@ -349,7 +351,6 @@ namespace BlockShare.BlockSharing
                     
                     tcpClient.Close();
                     return null;
-                    break;
                 case FileSystemEntryType.Directory:
                     Log("Server reported, requested entry is a directory", 0);
                     break;
@@ -363,17 +364,21 @@ namespace BlockShare.BlockSharing
             Log($"Digest length: {digestSize}", 0);
             byte[] xmlDirectoryDigestBytes = new byte[digestSize];
             NetworkRead(networkStream, xmlDirectoryDigestBytes, 0, xmlDirectoryDigestBytes.Length, 0);
+            
+            /*            
             string xmlDirectoryDigest = Encoding.UTF8.GetString(xmlDirectoryDigestBytes);
             Log($"Digest received", 0);
             XmlDocument xmlDocument = new XmlDocument();
             xmlDocument.LoadXml(xmlDirectoryDigest);
             Log($"Digest parsed to xml-dom", 0);
-
+            */
             tcpClient.Close();
 
-            string[] fileNames = Utils.GetFileNamesFromDigest(xmlDocument);
+            DirectoryDigest directoryDigest = new DirectoryDigest(xmlDirectoryDigestBytes);
 
-            return new RemoteFileSystemViewer(fileNames);
+            //string[] fileNames = Utils.GetFileNamesFromDigest(xmlDocument);
+
+            return new RemoteFileSystemViewer(directoryDigest);
         }
     }    
 }

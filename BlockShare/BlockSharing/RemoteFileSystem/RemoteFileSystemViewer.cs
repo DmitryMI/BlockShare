@@ -5,6 +5,7 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 using System.Xml;
+using BlockShare.BlockSharing.DirectoryDigesting;
 
 namespace BlockShare.BlockSharing.RemoteFileSystem
 {
@@ -15,10 +16,9 @@ namespace BlockShare.BlockSharing.RemoteFileSystem
         private readonly RemoteDirectoryInfo remoteRoot;
 
         private RemoteDirectoryInfo currentDirectory;
-
         public RemoteDirectoryInfo CurrentDirectory => currentDirectory;
 
-        private void EnsureFilePathExists(string fullPath)
+        private void EnsureFilePathExists(string fullPath, FileDigest fileDigest = null)
         {
             if (fullPath[0] == Path.DirectorySeparatorChar || fullPath[0] == Path.AltDirectorySeparatorChar)
             {
@@ -44,10 +44,11 @@ namespace BlockShare.BlockSharing.RemoteFileSystem
                 dir = child;
             }
 
-            RemoteFileInfo file = new RemoteFileInfo(fullPath, pathParts[pathParts.Length - 1], dir);
+            RemoteFileInfo file = new RemoteFileInfo(fullPath, pathParts[pathParts.Length - 1], dir, fileDigest);
             dir.Add(file);
         }
         
+        [Obsolete]
         public RemoteFileSystemViewer(string[] remoteFiles)
         {
             remoteRoot = new RemoteDirectoryInfo("", string.Empty, null);
@@ -55,6 +56,18 @@ namespace BlockShare.BlockSharing.RemoteFileSystem
             foreach (var fileName in remoteFiles)
             {
                 EnsureFilePathExists(fileName);
+            }
+
+            currentDirectory = remoteRoot;
+        }
+
+        public RemoteFileSystemViewer(DirectoryDigest directoryDigest)
+        {
+            remoteRoot = new RemoteDirectoryInfo("", string.Empty, null);
+
+            foreach (var fileDigest in directoryDigest)
+            {
+                EnsureFilePathExists(fileDigest.RelativePath, fileDigest);
             }
 
             currentDirectory = remoteRoot;
