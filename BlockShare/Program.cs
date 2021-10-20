@@ -163,6 +163,8 @@ namespace BlockShare
 
         static void Prehash(Preferences preferences)
         {
+            Console.WriteLine($"Prehashing: {preferences.ServerStoragePath}");
+
             if (File.Exists(preferences.ServerStoragePath))
             {
                 PrehashFile(preferences.ServerStoragePath, preferences);
