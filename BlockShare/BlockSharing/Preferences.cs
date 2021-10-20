@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
+using BlockShare.BlockSharing.HashMapping;
 
 namespace BlockShare.BlockSharing
 {
@@ -19,5 +20,10 @@ namespace BlockShare.BlockSharing
         public bool ClientBlockVerificationEnabled { get; set; } = true;
 
         public int Verbosity { get; set; } = 0;
+
+        public static string HashlistExtension { get; set; } = ".hashlist";
+        public static string HashpartExtension { get; set; } = ".hashpart";
+
+        public HashMapper HashMapper { get; set; } = new ExtensionHashMapper();
     }
 }

@@ -6,6 +6,7 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 using System.Xml;
+using Microsoft.SqlServer.Server;
 
 namespace BlockShare.BlockSharing
 {
@@ -95,7 +96,7 @@ namespace BlockShare.BlockSharing
 
             void AddFileToList(string file)
             {
-                if (file.EndsWith(".hashlist"))
+                if (file.EndsWith(Preferences.HashlistExtension))
                 {
                     return;
                 }
@@ -177,7 +178,7 @@ namespace BlockShare.BlockSharing
         {
             void EnumerateFile(string file)
             {
-                if (file.EndsWith(".hashlist"))
+                if (file.EndsWith(Preferences.HashlistExtension) || file.EndsWith(Preferences.HashpartExtension))
                 {
                     Console.WriteLine($"Removing {file}...");
                     File.Delete(file);
@@ -185,6 +186,29 @@ namespace BlockShare.BlockSharing
             }
 
             ForEachEntry(path, EnumerateFile);
+        }
+
+        public static string ToSafeBase64(byte[] toEncodeAsBytes)
+        {
+            char[] padding = { '=' };
+            string returnValue = System.Convert.ToBase64String(toEncodeAsBytes)
+                .TrimEnd(padding).Replace('+', '-').Replace('/', '_');
+
+            return returnValue;
+        }
+
+        public static byte[] FromSafeBase64(string base64)
+        {
+            string incoming = base64
+                .Replace('_', '/').Replace('-', '+');
+            switch (base64.Length % 4)
+            {
+                case 2: incoming += "=="; break;
+                case 3: incoming += "="; break;
+            }
+            byte[] bytes = Convert.FromBase64String(incoming);
+
+            return bytes;
         }
     }
 }

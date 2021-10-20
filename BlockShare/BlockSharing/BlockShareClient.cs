@@ -72,10 +72,17 @@ namespace BlockShare.BlockSharing
 
         private void DownloadFileInternal(NetworkStream networkStream, string fileName, IProgressReporter localHashProgress, IProgressReporter downloadProgress, int jobId)
         {
-            string localFileHashlistName = fileName + ".hashpart";
-            string localFileHashlistPath = Path.Combine(preferences.ClientStoragePath, localFileHashlistName);
+            //string localFileHashlistName = fileName + Preferences.HashpartExtension;
+            //string localFileHashlistPath = Path.Combine(preferences.ClientStoragePath, localFileHashlistName);
 
             string localFilePath = Path.Combine(preferences.ClientStoragePath, fileName);
+            string localFileHashlistPath = preferences.HashMapper.GetHashpartFile(localFilePath);
+
+            if (!File.Exists(localFilePath) && File.Exists(localFileHashlistPath))
+            {
+                File.WriteAllBytes(localFileHashlistPath, new byte[0]);
+            }
+
             FileInfo localFileInfo = new FileInfo(localFilePath);
             DirectoryInfo rootDirectoryInfo = new DirectoryInfo(preferences.ClientStoragePath);
 

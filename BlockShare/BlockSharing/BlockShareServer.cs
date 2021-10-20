@@ -173,7 +173,7 @@ namespace BlockShare.BlockSharing
             NetworkRead(networkStream, fileNameBytes, 0, fileNameLength, 10000);
 
             string fileName = Encoding.UTF8.GetString(fileNameBytes);
-            string filePath = null;
+            string filePath = string.Empty;
 
             try
             {
@@ -237,14 +237,15 @@ namespace BlockShare.BlockSharing
 
             using (FileStream fileStream = new FileStream(filePath, FileMode.Open, FileAccess.Read))
             {
-                string fileHashListName = fileName + ".hashlist";
-                Log($"Hashlist file name: {fileHashListName}", 2);
+                //string fileHashListName = fileName + Preferences.HashlistExtension;
+                string fileHashListPath = preferences.HashMapper.GetHashlistFile(filePath);
+                //Log($"Hashlist file name: {fileHashListName}", 2);
 
                 byte[] hashListSerialized = null;
 
                 Log($"On-server file size: {fileStream.Length}", 2);
 
-                string fileHashListPath = Path.Combine(preferences.ServerStoragePath, fileHashListName);
+                //string fileHashListPath = Path.Combine(preferences.ServerStoragePath, fileHashListName);
                 FileHashList hashList;
                 if (!File.Exists(fileHashListPath))
                 {
@@ -323,8 +324,6 @@ namespace BlockShare.BlockSharing
                         serverNetStat.Payload += (ulong)(blockRequestBytes.Length);
                     }
                 }
-
-                Log($"Client {client.Client.RemoteEndPoint} disconnected", 0);
             }
         }
 
@@ -346,6 +345,8 @@ namespace BlockShare.BlockSharing
                 {
                     Console.WriteLine(ex.Message);
                 }
+
+                Log($"Client {client.Client.RemoteEndPoint} disconnected", 0);
             }
         }
     }

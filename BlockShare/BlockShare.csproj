@@ -83,6 +83,9 @@
     <Compile Include="BlockSharing\FileHashList.cs" />
     <Compile Include="BlockSharing\FileHashListGenerator.cs" />
     <Compile Include="BlockSharing\FileSystemEntryType.cs" />
+    <Compile Include="BlockSharing\HashMapping\ExtensionHashMapper.cs" />
+    <Compile Include="BlockSharing\HashMapping\HashMapper.cs" />
+    <Compile Include="BlockSharing\HashMapping\ShaHashMapper.cs" />
     <Compile Include="BlockSharing\ILogger.cs" />
     <Compile Include="BlockSharing\IProgressReporter.cs" />
     <Compile Include="BlockSharing\NetStat.cs" />

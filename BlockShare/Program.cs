@@ -6,6 +6,7 @@ using System.IO;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
+using BlockShare.BlockSharing.HashMapping;
 using BlockShare.BlockSharing.RemoteFileSystem;
 
 namespace BlockShare
@@ -302,7 +303,11 @@ namespace BlockShare
             preferences.ServerStoragePath = storagePath;
             preferences.ClientStoragePath = storagePath;
             ConsoleLogger serverLogger = new ConsoleLogger("[SERVER]");
-            ConsoleLogger clientLogger = new ConsoleLogger("[CLIENT]");                    
+            ConsoleLogger clientLogger = new ConsoleLogger("[CLIENT]");
+            string startupDir = AppDomain.CurrentDomain.BaseDirectory;
+            string hashpartStorage = Path.Combine(startupDir, "BlockShare-Hashparts");
+            string hashlistStorage = Path.Combine(startupDir, "BlockShare-Hashlists");
+            preferences.HashMapper = new ShaHashMapper(hashpartStorage, hashlistStorage);
 
             if(mode == "server")
             {
