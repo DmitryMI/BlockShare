@@ -25,7 +25,24 @@ namespace BlockShare.BlockSharing
         private Task worker;
 
         private NetStat serverNetStat = new NetStat();
-        private NetStat GetServerNetStat => serverNetStat.CloneNetStat();
+        public NetStat GetServerNetStat() => serverNetStat.CloneNetStat();
+
+        private List<IPEndPoint> activeClients = new List<IPEndPoint>();
+
+        #region Events
+        public event Action<BlockShareServer, IPEndPoint> OnClientConnected;
+        public event Action<BlockShareServer, IPEndPoint> OnClientDisconnected;
+        public event Action<BlockShareServer> OnServerStopped;
+        public event Action<BlockShareServer, string> OnUnhandledException;
+        #endregion
+
+        public IPEndPoint[] GetActiveClients()
+        {
+            lock(activeClients)
+            {
+                return activeClients.ToArray();
+            }
+        }
 
         private void Log(string message, int withVerbosity)
         {
@@ -35,12 +52,30 @@ namespace BlockShare.BlockSharing
             }
         }
 
+        public string GetLocalEndpoint()
+        {
+            if (tcpListener == null)
+            {
+                return string.Empty;
+            }
+
+            return tcpListener.Server.LocalEndPoint.ToString();
+        }
+
         public BlockShareServer(string ip, int port, Preferences preferences, IProgressReporter hashProgress, ILogger logger)
         {
             HashListGeneratorReporter = hashProgress;
             this.preferences = preferences;
             Logger = logger;
             localEndpoint = new IPEndPoint(IPAddress.Parse(ip), port);
+        }
+
+        public BlockShareServer(Preferences preferences, IProgressReporter hashProgress, ILogger logger)
+        {
+            HashListGeneratorReporter = hashProgress;
+            this.preferences = preferences;
+            Logger = logger;
+            localEndpoint = new IPEndPoint(IPAddress.Parse(preferences.ServerIp), preferences.ServerPort);
         }
 
         public void StartServer()
@@ -53,6 +88,15 @@ namespace BlockShare.BlockSharing
             worker.Start();
 
             Log($"Server is now listening on {localEndpoint}", 0);
+        }
+
+        public void StopServer()
+        {
+            tcpListener.Stop();
+            worker.Wait();
+
+            Log($"Server is stopped", 0);
+            OnServerStopped?.Invoke(this);
         }
 
         private void NetworkWrite(NetworkStream stream, byte[] data, int offset, int length)
@@ -69,12 +113,19 @@ namespace BlockShare.BlockSharing
 
         private void WorkingMethod()
         {
-            while (true)
+            try
             {
-                Log("TcpListener is waiting for next client...", 0);
-                TcpClient client = tcpListener.AcceptTcpClient();
-                Task task = new Task(ClientAcceptedMethod, client);
-                task.Start();
+                while (true)
+                {
+                    Log("TcpListener is waiting for next client...", 0);
+                    TcpClient client = tcpListener.AcceptTcpClient();
+                    Task task = new Task(ClientAcceptedMethod, client);
+                    task.Start();
+                }
+            }
+            catch(Exception ex)
+            {
+                Log(ex.Message, 0);
             }
         }
         
@@ -332,7 +383,11 @@ namespace BlockShare.BlockSharing
             using (client)
             {
                 Log($"Client accepted from {client.Client.RemoteEndPoint}", 0);
-
+                lock(activeClients)
+                {
+                    activeClients.Add((IPEndPoint)client.Client.RemoteEndPoint);                    
+                }
+                OnClientConnected?.Invoke(this, (IPEndPoint)client.Client.RemoteEndPoint);
                 try
                 {
                     while (client.Connected)
@@ -349,6 +404,7 @@ namespace BlockShare.BlockSharing
                 }
                 catch (Exception ex)
                 {
+                    OnUnhandledException?.Invoke(this, ex.Message);
                     Console.WriteLine(ex.Message);
 #if DEBUG
                     Console.WriteLine(ex.StackTrace);
@@ -357,6 +413,11 @@ namespace BlockShare.BlockSharing
                 }
 
                 Log($"Client {client.Client.RemoteEndPoint} disconnected", 0);
+                lock (activeClients)
+                {
+                    activeClients.Remove((IPEndPoint)client.Client.RemoteEndPoint);                    
+                }
+                OnClientDisconnected?.Invoke(this, (IPEndPoint)client.Client.RemoteEndPoint);
             }
         }
     }

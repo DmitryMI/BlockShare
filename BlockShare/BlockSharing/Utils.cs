@@ -253,5 +253,28 @@ namespace BlockShare.BlockSharing
             double gib = sizeInBytes / 1024.0 / 1024.0 / 1024.0;
             return $"{gib:F1} GiB";
         }
+
+        public static string FormatSpeed(double bytesPerSecond)
+        {
+            if (bytesPerSecond < 1024)
+            {
+                return $"{bytesPerSecond} B/s";
+            }
+
+            if (bytesPerSecond < 1024 * 1024)
+            {
+                double kib = bytesPerSecond / 1024.0;
+                return $"{kib:F2} KiB/s";
+            }
+
+            if (bytesPerSecond < 1024 * 1024 * 1024)
+            {
+                double mib = bytesPerSecond / 1024.0 / 1024.0;
+                return $"{mib:F2} MiB/s";
+            }
+
+            double gib = bytesPerSecond / 1024.0 / 1024.0 / 1024.0;
+            return $"{gib:F2} GiB/s";
+        }
     }
 }

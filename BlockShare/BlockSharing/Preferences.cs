@@ -14,6 +14,9 @@ namespace BlockShare.BlockSharing
         public int GetHashSize() => HashSize;
         public long BlockSize { get; set; } = 16 * 1024 * 1024;
 
+        public string ServerIp { get; set; } = "127.0.0.1";
+        public int ServerPort { get; set; } = 9652;        
+
         public string ServerStoragePath { get; set; } = "";
         public string ClientStoragePath { get; set; } = "";
 

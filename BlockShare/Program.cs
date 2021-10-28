@@ -9,6 +9,9 @@ using System.Threading.Tasks;
 using BlockShare.BlockSharing.HashMapping;
 using BlockShare.BlockSharing.RemoteFileSystem;
 using BlockShare.BlockSharing.DirectoryDigesting;
+using System.Windows.Forms;
+using System.Runtime.InteropServices;
+using BlockShare.BlockSharing.Gui;
 
 namespace BlockShare
 {
@@ -333,6 +336,41 @@ namespace BlockShare
             }
         }
 
+        internal static class NativeMethods
+        {
+            [DllImport("kernel32.dll")]
+            internal static extern Boolean AllocConsole();
+            [DllImport("kernel32.dll")]
+            internal static extern Boolean FreeConsole();
+        }
+
+
+        static void StartGui(string mode, Preferences preferences)
+        {
+            Form startupForm = null;
+            switch (mode)
+            {
+                case "browser":
+                    
+                    break;
+                case "server":
+                    startupForm = new ServerForm(preferences);
+                    break;
+                default:
+                    Console.WriteLine("GUI does not support this mode of operation");
+                    break;
+            }
+
+            if(startupForm == null)
+            {
+                return;
+            }
+
+            NativeMethods.FreeConsole();
+            Application.EnableVisualStyles();
+            Application.Run(startupForm);
+        }
+
         static void Main(string[] args)
         {
             if (args.Length == 0)
@@ -342,6 +380,7 @@ namespace BlockShare
                 Console.WriteLine("[3] BlockSharing.exe client <server-ip> <server-port> <storage path> [remote file]");
                 Console.WriteLine("[4] BlockSharing.exe browser <server-ip> <server-port> <storage path> [starting dir]");
                 Console.WriteLine("[5] BlockSharing.exe server <bind-ip> <bind-port> <storage path>");
+                Console.WriteLine("[6] BlockSharing.exe gui browser/server <ip> <storage>");
                 return;
             }
 
@@ -415,6 +454,12 @@ namespace BlockShare
                 portStr = args[2];
                 storagePath = args[3];
             }
+            else if(mode == "gui")
+            {
+                ip = args[2];
+                portStr = args[3];
+                storagePath = args[4];
+            }
             else
             {
                 Console.WriteLine($"Unknown mode: {mode}");
@@ -450,8 +495,18 @@ namespace BlockShare
                 Browser(ip, port, preferences, clientLogger, fileName);
             }
 
-            Console.WriteLine("Press any key to close...");
-            Console.ReadKey();
+            if (mode == "gui")
+            {
+                string guiMode = args[1];
+                preferences.ServerIp = ip;
+                preferences.ServerPort = int.Parse(portStr);
+                StartGui(guiMode, preferences);
+            }
+            else
+            {
+                Console.WriteLine("Press any key to close...");
+                Console.ReadKey();
+            }
         }
     }
 }
