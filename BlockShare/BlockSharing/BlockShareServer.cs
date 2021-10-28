@@ -209,30 +209,25 @@ namespace BlockShare.BlockSharing
 
             if (Directory.Exists(filePath))
             {
+                entryTypeMessage = new byte[] { (byte)FileSystemEntryType.Directory };
+                NetworkWrite(networkStream, entryTypeMessage, 0, entryTypeMessage.Length);
+
                 byte[] recursionLevelBytes = new byte[sizeof(int)];
                 NetworkRead(networkStream, recursionLevelBytes, 0, recursionLevelBytes.Length, 1000);
                 int recursionLevel = BitConverter.ToInt32(recursionLevelBytes, 0);
                 Log($"Directory was requested. Generating XML digest with recursion level {recursionLevel}...", 0);
                 DirectoryInfo directoryInfo = new DirectoryInfo(filePath);
                 DirectoryInfo rootDirectoryInfo = new DirectoryInfo(preferences.ServerStoragePath);
-                //string xmlDigest = Utils.GenerateDirectoryDigest(directoryInfo, rootDirectoryInfo);
-                
                 DirectoryDigest directoryDigest = new DirectoryDigest(directoryInfo, rootDirectoryInfo, recursionLevel);
                                 
                 byte[] xmlDigestBytes = DirectoryDigest.Serialize(directoryDigest);
                 int digestLength = xmlDigestBytes.Length;
-                byte[] digestLengthBytes = BitConverter.GetBytes(digestLength);
-
-                entryTypeMessage = new byte[] { (byte)FileSystemEntryType.Directory };
-                NetworkWrite(networkStream, entryTypeMessage, 0, entryTypeMessage.Length);
+                byte[] digestLengthBytes = BitConverter.GetBytes(digestLength);                
 
                 NetworkWrite(networkStream, digestLengthBytes, 0, digestLengthBytes.Length);
 
                 NetworkWrite(networkStream, xmlDigestBytes, 0, xmlDigestBytes.Length);
                 Log($"Digest sent.", 0);
-
-                //client.Close();
-                //Log($"Connection closed");
                 return;
             }
 

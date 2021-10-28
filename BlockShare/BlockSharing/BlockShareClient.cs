@@ -262,24 +262,18 @@ namespace BlockShare.BlockSharing
 
             if (entryType == FileSystemEntryType.Directory)
             {
+                byte[] recursionLevelBytes = BitConverter.GetBytes(int.MaxValue);
+                NetworkWrite(networkStream, recursionLevelBytes, 0, recursionLevelBytes.Length);
+
                 byte[] digestSizeBytes = new byte[sizeof(int)];
                 NetworkRead(networkStream, digestSizeBytes, 0, digestSizeBytes.Length, 0);
                 int digestSize = BitConverter.ToInt32(digestSizeBytes, 0);
                 Log($"Digest length: {digestSize}", 0);
                 byte[] xmlDirectoryDigestBytes = new byte[digestSize];
                 NetworkRead(networkStream, xmlDirectoryDigestBytes, 0, xmlDirectoryDigestBytes.Length, 0);
-                
-                /*
-                string xmlDirectoryDigest = Encoding.UTF8.GetString(xmlDirectoryDigestBytes);
-                Log($"Digest received", 0);
-                XmlDocument xmlDocument = new XmlDocument();
-                xmlDocument.LoadXml(xmlDirectoryDigest);
-                Log($"Digest parsed to xml-dom", 0);
-                */
-
+              
                 DirectoryDigest directoryDigest = DirectoryDigest.Deserialize(xmlDirectoryDigestBytes);
 
-                //string[] fileNames = Utils.GetFileNamesFromDigest(xmlDocument);
                 IReadOnlyList<FileDigest> allFiles = directoryDigest.GetFilesRecursive();
                 Log($"Files to load: {allFiles.Count}", 0);
                 for (var index = 0; index < allFiles.Count; index++)
@@ -332,7 +326,7 @@ namespace BlockShare.BlockSharing
             byte[] fileNameBytes = Encoding.UTF8.GetBytes(directory);
             int fileNameLength = fileNameBytes.Length;
             byte[] fileNameLengthBytes = BitConverter.GetBytes(fileNameLength);
-            byte[] recursionLevelBytes = BitConverter.GetBytes(recursionLevel);
+            byte[] recursionLevelBytes = BitConverter.GetBytes(preferences.BrowserRecursionLevel);
 
             NetworkWrite(networkStream, fileNameLengthBytes, 0, fileNameLengthBytes.Length);
             NetworkWrite(networkStream, fileNameBytes, 0, fileNameBytes.Length);
