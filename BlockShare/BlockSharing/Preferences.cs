@@ -21,6 +21,8 @@ namespace BlockShare.BlockSharing
 
         public int Verbosity { get; set; } = 0;
 
+        public int BrowserRecursionLevel { get; set; } = 1;
+
         public static string HashlistExtension { get; set; } = ".hashlist";
         public static string HashpartExtension { get; set; } = ".hashpart";
 
