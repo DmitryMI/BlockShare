@@ -43,16 +43,31 @@ namespace BlockShare.BlockSharing.DirectoryDigesting
             {
                 Size = long.Parse(sizeAttribute.Value);
             }
-            RelativePath = fileElement.InnerText;
+
+            XmlAttribute pathAttribute = fileElement.GetAttributeNode("Path");
+            if (pathAttribute == null)
+            {
+                Console.WriteLine("[FileDigest] Warning: XML digest is malformed (Path Attribute not found)");
+                RelativePath = String.Empty;
+            }
+            else
+            {
+                RelativePath = pathAttribute.Value;
+            }            
         }
 
-        public XmlElement ToXml(XmlDocument document)
+        public XmlElement ToXmlElement(XmlDocument document)
         {
-            XmlElement fileElement = document.CreateElement(string.Empty, "File", string.Empty);
-            fileElement.InnerText = RelativePath;
+            XmlElement fileElement = document.CreateElement(string.Empty, "FileDigest", string.Empty);
+            //fileElement.InnerText = RelativePath;
             XmlAttribute sizeAttribute = document.CreateAttribute("Size");
             sizeAttribute.Value = Size.ToString();
             fileElement.SetAttributeNode(sizeAttribute);
+
+            XmlAttribute pathAttribute = document.CreateAttribute("Path");
+            pathAttribute.Value = RelativePath;
+            fileElement.SetAttributeNode(pathAttribute);
+
             return fileElement;
         }
     }

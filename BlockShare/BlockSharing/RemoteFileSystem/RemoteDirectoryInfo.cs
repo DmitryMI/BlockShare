@@ -11,6 +11,7 @@ namespace BlockShare.BlockSharing.RemoteFileSystem
     {
         private readonly List<RemoteFileSystemEntryInfo> entries = new List<RemoteFileSystemEntryInfo>();
 
+        public bool IsLoaded { get; set; }
 
         public long CalculateSize()
         {

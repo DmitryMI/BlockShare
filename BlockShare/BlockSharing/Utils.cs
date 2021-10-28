@@ -49,13 +49,30 @@ namespace BlockShare.BlockSharing
 
             return builder.ToString();
         }
+        public static long GetDirSize(DirectoryInfo d)
+        {
+            long size = 0;
+            // Add file sizes.
+            FileInfo[] fis = d.GetFiles();
+            foreach (FileInfo fi in fis)
+            {
+                size += fi.Length;
+            }
+            // Add subdirectory sizes.
+            DirectoryInfo[] dis = d.GetDirectories();
+            foreach (DirectoryInfo di in dis)
+            {
+                size += GetDirSize(di);
+            }
+            return size;
+        }
 
-        public static void ForEachFsEntry<T>(string root, T state, Action<string, T> action)
+        public static void ForEachFsEntry<T>(string root, T state, Action<string, T> fileAction, Action<string, T> dirAction = null)
         {
             if (File.Exists(root))
             {
                 //Console.WriteLine($"[UTILS] Enumerated: {root}");
-                action(root, state);
+                fileAction(root, state);
             }
             else if (Directory.Exists(root))
             {
@@ -63,14 +80,15 @@ namespace BlockShare.BlockSharing
                 var dirs = Directory.EnumerateDirectories(root);
                 foreach (var dir in dirs)
                 {
-                    ForEachFsEntry(dir, state, action);
+                    dirAction?.Invoke(dir, state);
+                    ForEachFsEntry(dir, state, fileAction);
                 }
 
                 var files = Directory.EnumerateFiles(root);
                 foreach (var file in files)
                 {
                     //Console.WriteLine($"[UTILS] Enumerated: {file}");
-                    action(file, state);
+                    fileAction(file, state);
                 }
             }
         }

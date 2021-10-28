@@ -9,6 +9,8 @@ using BlockShare.BlockSharing.DirectoryDigesting;
 
 namespace BlockShare.BlockSharing.RemoteFileSystem
 {
+
+    [Obsolete]
     public class RemoteFileSystemViewer
     {
         public static char PathSeparatorChar = Path.DirectorySeparatorChar;
@@ -48,24 +50,13 @@ namespace BlockShare.BlockSharing.RemoteFileSystem
             dir.Add(file);
         }
         
-        [Obsolete]
-        public RemoteFileSystemViewer(string[] remoteFiles)
-        {
-            remoteRoot = new RemoteDirectoryInfo("", string.Empty, null);
-
-            foreach (var fileName in remoteFiles)
-            {
-                EnsureFilePathExists(fileName);
-            }
-
-            currentDirectory = remoteRoot;
-        }
-
         public RemoteFileSystemViewer(DirectoryDigest directoryDigest)
         {
             remoteRoot = new RemoteDirectoryInfo("", string.Empty, null);
 
-            foreach (var fileDigest in directoryDigest)
+            var files = directoryDigest.GetFilesRecursive();
+
+            foreach (var fileDigest in files)
             {
                 EnsureFilePathExists(fileDigest.RelativePath, fileDigest);
             }

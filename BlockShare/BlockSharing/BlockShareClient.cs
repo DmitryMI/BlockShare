@@ -277,14 +277,15 @@ namespace BlockShare.BlockSharing
                 Log($"Digest parsed to xml-dom", 0);
                 */
 
-                DirectoryDigest directoryDigest = new DirectoryDigest(xmlDirectoryDigestBytes);
+                DirectoryDigest directoryDigest = DirectoryDigest.Deserialize(xmlDirectoryDigestBytes);
 
                 //string[] fileNames = Utils.GetFileNamesFromDigest(xmlDocument);
-                Log($"Files to load: {directoryDigest.Count}", 0);
-                for (var index = 0; index < directoryDigest.Count; index++)
+                IReadOnlyList<FileDigest> allFiles = directoryDigest.GetFilesRecursive();
+                Log($"Files to load: {allFiles.Count}", 0);
+                for (var index = 0; index < allFiles.Count; index++)
                 {
                     //var name = fileNames[index];
-                    FileDigest fileDigest = directoryDigest[index];
+                    FileDigest fileDigest = allFiles[index];
                     
                     fileNameBytes = Encoding.UTF8.GetBytes(fileDigest.RelativePath);
                     fileNameLength = fileNameBytes.Length;
@@ -308,7 +309,7 @@ namespace BlockShare.BlockSharing
 
                     DownloadFileInternal(networkStream, fileDigest.RelativePath, localHashProgress, downloadProgress, index);
 
-                    downloadProgress?.ReportOverallProgress(this, (double) index / directoryDigest.Count);
+                    downloadProgress?.ReportOverallProgress(this, (double) index / allFiles.Count);
                 }
 
                 return;
@@ -374,7 +375,7 @@ namespace BlockShare.BlockSharing
             */
             tcpClient.Close();
 
-            DirectoryDigest directoryDigest = new DirectoryDigest(xmlDirectoryDigestBytes);
+            DirectoryDigest directoryDigest = DirectoryDigest.Deserialize(xmlDirectoryDigestBytes);
 
             //string[] fileNames = Utils.GetFileNamesFromDigest(xmlDocument);
 

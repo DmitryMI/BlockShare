@@ -222,7 +222,7 @@ namespace BlockShare.BlockSharing
                 int digestLength = xmlDigestBytes.Length;
                 byte[] digestLengthBytes = BitConverter.GetBytes(digestLength);
                 */
-                byte[] xmlDigestBytes = directoryDigest.Serialize();
+                byte[] xmlDigestBytes = DirectoryDigest.Serialize(directoryDigest);
                 int digestLength = xmlDigestBytes.Length;
                 byte[] digestLengthBytes = BitConverter.GetBytes(digestLength);
 
@@ -351,6 +351,10 @@ namespace BlockShare.BlockSharing
                 catch (Exception ex)
                 {
                     Console.WriteLine(ex.Message);
+#if DEBUG
+                    Console.WriteLine(ex.StackTrace);
+                    throw ex;
+#endif
                 }
 
                 Log($"Client {client.Client.RemoteEndPoint} disconnected", 0);

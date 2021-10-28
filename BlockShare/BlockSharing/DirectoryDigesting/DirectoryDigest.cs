@@ -9,68 +9,187 @@ using System.Xml;
 
 namespace BlockShare.BlockSharing.DirectoryDigesting
 { 
-    public class DirectoryDigest : IList<FileDigest>
+    public class DirectoryDigest
     {
         private DirectoryInfo directoryInfo;
         private DirectoryInfo rootDirectoryInfo;
 
+        private List<DirectoryDigest> subdirsDigestList = new List<DirectoryDigest>();
         private List<FileDigest> fileDigestList = new List<FileDigest>();
 
-        public DirectoryDigest (DirectoryInfo directoryInfo, DirectoryInfo rootDirectoryInfo)
+        public DirectoryInfo GetDirectoryInfo()
         {
-            this.directoryInfo = directoryInfo;
-            this.rootDirectoryInfo = rootDirectoryInfo;
-
-            void AddFileToList(string file, object notInUse)
-            {
-                if (file.EndsWith(Preferences.HashlistExtension))
-                {
-                    return;
-                }
-                string relativePath = file.Replace(rootDirectoryInfo.FullName, "");
-                if (relativePath[0] == '\\' || relativePath[0] == '/')
-                {
-                    relativePath = relativePath.Remove(0, 1);
-                }
-                FileDigest fileDigest = new FileDigest(relativePath, file);
-                fileDigestList.Add(fileDigest);
-            }
-
-            Utils.ForEachFsEntry<object>(directoryInfo.FullName, null, AddFileToList);
+            return directoryInfo;
         }
 
-        public XmlDocument ToXmlDocument()
-        {
-            XmlDocument doc = new XmlDocument();
+        public bool IsLoaded { get; private set; }
+        public long Size { get; private set; }
+        public string RelativePath { get; private set; }
 
+        public DirectoryDigest (DirectoryInfo directoryInfo, DirectoryInfo rootDirectoryInfo, int recursionLevel = Int32.MaxValue)
+        {
+            this.directoryInfo = directoryInfo;
+            this.rootDirectoryInfo = rootDirectoryInfo;            
+
+            if (recursionLevel > 0)
+            {
+                IEnumerable<DirectoryInfo> directoryInfos = directoryInfo.EnumerateDirectories();
+
+                foreach (DirectoryInfo directory in directoryInfos)
+                {
+                    DirectoryDigest directoryDigest = new DirectoryDigest(directory, rootDirectoryInfo, recursionLevel - 1);
+                    Size += directoryDigest.Size;
+                    subdirsDigestList.Add(directoryDigest);
+                }
+
+                IEnumerable<FileInfo> fileInfos = directoryInfo.EnumerateFiles();
+                foreach (FileInfo fileInfo in fileInfos)
+                {
+                    string file = fileInfo.FullName;
+                    if (file.EndsWith(Preferences.HashlistExtension))
+                    {
+                        return;
+                    }
+                    string relativePath = file.Replace(rootDirectoryInfo.FullName, "");
+                    if (relativePath[0] == '\\' || relativePath[0] == '/')
+                    {
+                        relativePath = relativePath.Remove(0, 1);
+                    }
+                    FileDigest fileDigest = new FileDigest(relativePath, file);
+                    Size += fileDigest.Size;
+                    fileDigestList.Add(fileDigest);
+                }
+
+                IsLoaded = true;
+            }
+            else
+            {
+                IsLoaded = false;
+                Size = Utils.GetDirSize(directoryInfo);
+            }
+
+            string dir = directoryInfo.FullName;
+            string dirRelativePath = dir.Replace(rootDirectoryInfo.FullName, "");            
+            if (dirRelativePath.Length > 0 && (dirRelativePath[0] == '\\' || dirRelativePath[0] == '/'))
+            {
+                dirRelativePath = dirRelativePath.Remove(0, 1);
+            }
+
+            RelativePath = dirRelativePath;
+        }
+
+        private XmlElement ToXmlElement(XmlDocument doc, XmlElement parent)
+        { 
+            XmlElement directoryDigestElement = doc.CreateElement(string.Empty, "DirectoryDigest", string.Empty);
+
+            if (parent != null)
+            {
+                parent.AppendChild(directoryDigestElement);
+            }
+
+            XmlAttribute sizeAttribute = doc.CreateAttribute("Size");
+            sizeAttribute.Value = Size.ToString();
+            directoryDigestElement.SetAttributeNode(sizeAttribute);
+
+            XmlAttribute pathAttribute = doc.CreateAttribute("Path");
+            pathAttribute.Value = RelativePath;
+            directoryDigestElement.SetAttributeNode(pathAttribute);
+
+            XmlAttribute loadedAttribute = doc.CreateAttribute("Loaded");
+            loadedAttribute.Value = IsLoaded.ToString();
+            directoryDigestElement.SetAttributeNode(loadedAttribute);
+
+            foreach (DirectoryDigest directoryDigest in subdirsDigestList)
+            {
+                XmlElement dirElement = directoryDigest.ToXmlElement(doc, directoryDigestElement);
+                directoryDigestElement.AppendChild(dirElement);
+            }
+
+            foreach (FileDigest fileDigest in fileDigestList)
+            {
+                XmlElement fileElement = fileDigest.ToXmlElement(doc);
+                directoryDigestElement.AppendChild(fileElement);
+            }
+
+            return directoryDigestElement;
+        }
+
+        public static XmlDocument ToXmlDocument(DirectoryDigest rootDigest)
+        {
+            XmlDocument doc;
+
+            doc = new XmlDocument();
             XmlDeclaration xmlDeclaration = doc.CreateXmlDeclaration("1.0", "UTF-8", null);
             XmlElement root = doc.DocumentElement;
             doc.InsertBefore(xmlDeclaration, root);
 
-            XmlElement directoryDigestElement = doc.CreateElement(string.Empty, "DirectoryDigest", string.Empty);
-
-            doc.AppendChild(directoryDigestElement);
-
-            foreach (FileDigest fileDigest in fileDigestList)
-            {
-                XmlElement fileElement = fileDigest.ToXml(doc);
-                directoryDigestElement.AppendChild(fileElement);
-            }
-
+            XmlElement rootElement = rootDigest.ToXmlElement(doc, root);
+            doc.AppendChild(rootElement);
             return doc;
         }
 
-        public string GetXmlString()
+        public static string GetXmlString(DirectoryDigest rootDigest)
         {
-            return ToXmlDocument().OuterXml;
+            string xml = ToXmlDocument(rootDigest).OuterXml;
+            return xml;
         }
 
-        public byte[] Serialize()
+        public static byte[] Serialize(DirectoryDigest rootDigest)
         {
-            return Encoding.UTF8.GetBytes(GetXmlString());
+            return Encoding.UTF8.GetBytes(GetXmlString(rootDigest));
         }
 
-        private void FromXmlDocument(XmlDocument xmlDigest)
+        public void FromXmlElement(XmlElement xmlElement)
+        {
+            foreach (XmlElement childElement in xmlElement)
+            {
+                if (childElement.Name == "FileDigest")
+                {
+                    FileDigest fileDigest = new FileDigest(childElement);
+                    fileDigestList.Add(fileDigest);
+                }
+                if (childElement.Name == "DirectoryDigest")
+                {
+                    DirectoryDigest directoryDigest = new DirectoryDigest(childElement);
+                    subdirsDigestList.Add(directoryDigest);
+                }
+            }
+
+            XmlAttribute sizeAttribute = xmlElement.GetAttributeNode("Size");
+            if (sizeAttribute == null)
+            {
+                Console.WriteLine("[DirectoryDigest] Warning: XML digest is malformed (Size Attribute not found)");
+                Size = 0;
+            }
+            else
+            {
+                Size = long.Parse(sizeAttribute.Value);
+            }           
+
+            XmlAttribute pathAttribute = xmlElement.GetAttributeNode("Path");
+            if (pathAttribute == null)
+            {
+                Console.WriteLine("[DirectoryDigest] Warning: XML digest is malformed (Path Attribute not found)");
+                RelativePath = String.Empty;
+            }
+            else
+            {
+                RelativePath = pathAttribute.Value;
+            }
+
+            XmlAttribute loadedAttribute = xmlElement.GetAttributeNode("Loaded");
+            if (sizeAttribute == null)
+            {
+                Console.WriteLine("[DirectoryDigest] Warning: XML digest is malformed (Loaded Attribute not found)");
+                IsLoaded = true;
+            }
+            else
+            {
+                IsLoaded = bool.Parse(loadedAttribute.Value);
+            }
+        }
+
+        public static DirectoryDigest FromXmlDocument(XmlDocument xmlDigest)
         {
             XmlElement directoryDigestElement = xmlDigest["DirectoryDigest"];
 
@@ -79,90 +198,46 @@ namespace BlockShare.BlockSharing.DirectoryDigesting
                 throw new ArgumentException("Directory Digest is malformed");
             }
 
-            foreach (XmlElement fileElement in directoryDigestElement)
-            {
-                FileDigest fileDigest = new FileDigest(fileElement);
-                fileDigestList.Add(fileDigest);
-            }
+            DirectoryDigest directoryDigest = new DirectoryDigest(directoryDigestElement);
+
+            return directoryDigest;
         }
 
-        public DirectoryDigest(XmlDocument xmlDigest)
+        public DirectoryDigest(XmlElement xmlElementDigest)
         {
-            FromXmlDocument(xmlDigest);
+            FromXmlElement(xmlElementDigest);
         }
 
-        public DirectoryDigest(byte[] serializedDigest)
+        public static DirectoryDigest Deserialize(byte[] serializedDigest)
         {
             string xmlString = Encoding.UTF8.GetString(serializedDigest);
             XmlDocument doc = new XmlDocument();
             doc.LoadXml(xmlString);
 
-            FromXmlDocument(doc);
+            return FromXmlDocument(doc);
         }
 
-        #region ListImplementation
-
-        public IEnumerator<FileDigest> GetEnumerator()
+        public IEnumerable<DirectoryDigest> GetSubDirectories()
         {
-            return fileDigestList.GetEnumerator();
+            return subdirsDigestList;
         }
 
-        IEnumerator IEnumerable.GetEnumerator()
+        public IEnumerable<FileDigest> GetFiles()
         {
-            return ((IEnumerable) fileDigestList).GetEnumerator();
+            return fileDigestList;
         }
 
-        public void Add(FileDigest item)
+        public IReadOnlyList<FileDigest> GetFilesRecursive()
         {
-            fileDigestList.Add(item);
+            List<FileDigest> fileList = new List<FileDigest>();
+            foreach(DirectoryDigest dir in subdirsDigestList)
+            {
+                fileList.AddRange(dir.GetFilesRecursive());
+            }
+
+            fileList.AddRange(GetFiles());
+
+            return fileList;
         }
-
-        public void Clear()
-        {
-            fileDigestList.Clear();
-        }
-
-        public bool Contains(FileDigest item)
-        {
-            return fileDigestList.Contains(item);
-        }
-
-        public void CopyTo(FileDigest[] array, int arrayIndex)
-        {
-            fileDigestList.CopyTo(array, arrayIndex);
-        }
-
-        public bool Remove(FileDigest item)
-        {
-            return fileDigestList.Remove(item);
-        }
-
-        public int Count => fileDigestList.Count;
-
-        public bool IsReadOnly => false;
-
-        public int IndexOf(FileDigest item)
-        {
-            return fileDigestList.IndexOf(item);
-        }
-
-        public void Insert(int index, FileDigest item)
-        {
-            fileDigestList.Insert(index, item);
-        }
-
-        public void RemoveAt(int index)
-        {
-            fileDigestList.RemoveAt(index);
-        }
-
-        public FileDigest this[int index]
-        {
-            get => fileDigestList[index];
-            set => fileDigestList[index] = value;
-        }
-
-
-        #endregion
     }
 }
