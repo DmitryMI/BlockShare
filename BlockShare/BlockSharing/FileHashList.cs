@@ -62,7 +62,7 @@ namespace BlockShare.BlockSharing
             for(int i = 0; i < blocksCount; i++)
             {
                 byte[] hash = new byte[preferences.GetHashSize()];
-                int filePosition = (int)(i * preferences.BlockSize);
+                long filePosition = (i * preferences.BlockSize);
                 Array.Copy(serializedHashList, i * preferences.GetHashSize(), hash, 0, preferences.GetHashSize());
                 list[i] = new FileHashBlock(filePosition, hash);               
             }
