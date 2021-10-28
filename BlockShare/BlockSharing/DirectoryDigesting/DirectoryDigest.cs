@@ -25,6 +25,7 @@ namespace BlockShare.BlockSharing.DirectoryDigesting
         public bool IsLoaded { get; private set; }
         public long Size { get; private set; }
         public string RelativePath { get; private set; }
+        public string Name { get; private set; }
 
         public DirectoryDigest (DirectoryInfo directoryInfo, DirectoryInfo rootDirectoryInfo, int recursionLevel = Int32.MaxValue)
         {
@@ -76,6 +77,7 @@ namespace BlockShare.BlockSharing.DirectoryDigesting
             }
 
             RelativePath = dirRelativePath;
+            Name = directoryInfo.Name;
         }
 
         private XmlElement ToXmlElement(XmlDocument doc, XmlElement parent)
@@ -94,6 +96,10 @@ namespace BlockShare.BlockSharing.DirectoryDigesting
             XmlAttribute pathAttribute = doc.CreateAttribute("Path");
             pathAttribute.Value = RelativePath;
             directoryDigestElement.SetAttributeNode(pathAttribute);
+
+            XmlAttribute nameAttribute = doc.CreateAttribute("Name");
+            nameAttribute.Value = Name;
+            directoryDigestElement.SetAttributeNode(nameAttribute);
 
             XmlAttribute loadedAttribute = doc.CreateAttribute("Loaded");
             loadedAttribute.Value = IsLoaded.ToString();
@@ -177,6 +183,17 @@ namespace BlockShare.BlockSharing.DirectoryDigesting
                 RelativePath = pathAttribute.Value;
             }
 
+            XmlAttribute nameAttribute = xmlElement.GetAttributeNode("Name");
+            if (nameAttribute == null)
+            {
+                Console.WriteLine("[DirectoryDigest] Warning: XML digest is malformed (Name Attribute not found)");
+                Name = String.Empty;
+            }
+            else
+            {
+                Name = nameAttribute.Value;
+            }
+
             XmlAttribute loadedAttribute = xmlElement.GetAttributeNode("Loaded");
             if (sizeAttribute == null)
             {
@@ -217,12 +234,12 @@ namespace BlockShare.BlockSharing.DirectoryDigesting
             return FromXmlDocument(doc);
         }
 
-        public IEnumerable<DirectoryDigest> GetSubDirectories()
+        public IReadOnlyList<DirectoryDigest> GetSubDirectories()
         {
             return subdirsDigestList;
         }
 
-        public IEnumerable<FileDigest> GetFiles()
+        public IReadOnlyList<FileDigest> GetFiles()
         {
             return fileDigestList;
         }
@@ -238,6 +255,13 @@ namespace BlockShare.BlockSharing.DirectoryDigesting
             fileList.AddRange(GetFiles());
 
             return fileList;
+        }
+
+        public void LoadEntriesFrom(DirectoryDigest directoryDigest)
+        {
+            IsLoaded = directoryDigest.IsLoaded;
+            fileDigestList = directoryDigest.fileDigestList;
+            subdirsDigestList = directoryDigest.subdirsDigestList;
         }
     }
 }

@@ -11,7 +11,8 @@ namespace BlockShare.BlockSharing.DirectoryDigesting
     public class FileDigest
     {
         public string RelativePath { get; set; }
-        public long Size { get; set; }
+        public string Name { get; private set; }
+        public long Size { get; set; }        
 
         public FileDigest(string relativePath, string absoluteFilePath)
         {
@@ -24,6 +25,7 @@ namespace BlockShare.BlockSharing.DirectoryDigesting
             {
                 FileInfo fileInfo = new FileInfo(osPath);
                 Size = fileInfo.Length;
+                Name = fileInfo.Name;
             }
             else
             {
@@ -53,7 +55,17 @@ namespace BlockShare.BlockSharing.DirectoryDigesting
             else
             {
                 RelativePath = pathAttribute.Value;
-            }            
+            }
+            XmlAttribute nameAttribute = fileElement.GetAttributeNode("Name");
+            if (nameAttribute == null)
+            {
+                Console.WriteLine("[FileDigest] Warning: XML digest is malformed (Name Attribute not found)");
+                Name = String.Empty;
+            }
+            else
+            {
+                Name = nameAttribute.Value;
+            }
         }
 
         public XmlElement ToXmlElement(XmlDocument document)
@@ -67,6 +79,10 @@ namespace BlockShare.BlockSharing.DirectoryDigesting
             XmlAttribute pathAttribute = document.CreateAttribute("Path");
             pathAttribute.Value = RelativePath;
             fileElement.SetAttributeNode(pathAttribute);
+
+            XmlAttribute nameAttribute = document.CreateAttribute("Name");
+            nameAttribute.Value = Name;
+            fileElement.SetAttributeNode(nameAttribute);
 
             return fileElement;
         }

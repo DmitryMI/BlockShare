@@ -92,7 +92,6 @@
     <Compile Include="BlockSharing\IProgressReporter.cs" />
     <Compile Include="BlockSharing\NetStat.cs" />
     <Compile Include="BlockSharing\Preferences.cs" />
-    <Compile Include="BlockSharing\RemoteFileSystem\DigestViewer.cs" />
     <Compile Include="BlockSharing\RemoteFileSystem\RemoteDirectoryInfo.cs" />
     <Compile Include="BlockSharing\RemoteFileSystem\RemoteFileInfo.cs" />
     <Compile Include="BlockSharing\RemoteFileSystem\RemoteFileSystemEntryInfo.cs" />

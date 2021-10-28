@@ -166,7 +166,7 @@ namespace BlockShare.BlockSharing
 
             byte[] fileNameLengthBytes = new byte[sizeof(int)];
 
-            Utils.ReadPackage(networkStream, fileNameLengthBytes, 0, sizeof(int), 10000);
+            NetworkRead(networkStream, fileNameLengthBytes, 0, sizeof(int), 10000);
 
             int fileNameLength = BitConverter.ToInt32(fileNameLengthBytes, 0);
             byte[] fileNameBytes = new byte[fileNameLength];
@@ -174,7 +174,7 @@ namespace BlockShare.BlockSharing
             NetworkRead(networkStream, fileNameBytes, 0, fileNameLength, 10000);
 
             string fileName = Encoding.UTF8.GetString(fileNameBytes);
-            string filePath = string.Empty;
+            string filePath = string.Empty;            
 
             try
             {
@@ -209,19 +209,16 @@ namespace BlockShare.BlockSharing
 
             if (Directory.Exists(filePath))
             {
-                Log("Directory was requested. Generating XML digest...", 0);
+                byte[] recursionLevelBytes = new byte[sizeof(int)];
+                NetworkRead(networkStream, recursionLevelBytes, 0, recursionLevelBytes.Length, 1000);
+                int recursionLevel = BitConverter.ToInt32(recursionLevelBytes, 0);
+                Log($"Directory was requested. Generating XML digest with recursion level {recursionLevel}...", 0);
                 DirectoryInfo directoryInfo = new DirectoryInfo(filePath);
                 DirectoryInfo rootDirectoryInfo = new DirectoryInfo(preferences.ServerStoragePath);
                 //string xmlDigest = Utils.GenerateDirectoryDigest(directoryInfo, rootDirectoryInfo);
-                DirectoryDigest directoryDigest = new DirectoryDigest(directoryInfo, rootDirectoryInfo);
                 
-                /*
-                Log($"Digest generated. Length: {xmlDigest.Length}", 2);
-
-                byte[] xmlDigestBytes = Encoding.UTF8.GetBytes(xmlDigest);
-                int digestLength = xmlDigestBytes.Length;
-                byte[] digestLengthBytes = BitConverter.GetBytes(digestLength);
-                */
+                DirectoryDigest directoryDigest = new DirectoryDigest(directoryInfo, rootDirectoryInfo, recursionLevel);
+                                
                 byte[] xmlDigestBytes = DirectoryDigest.Serialize(directoryDigest);
                 int digestLength = xmlDigestBytes.Length;
                 byte[] digestLengthBytes = BitConverter.GetBytes(digestLength);
@@ -305,29 +302,29 @@ namespace BlockShare.BlockSharing
                     //networkStream.Read(blockRequestBytes, 0, blockRequestBytes.Length);
                     NetworkRead(networkStream, blockRequestBytes, 0, blockRequestBytes.Length, 60000);
 
-                    int requestStartIndex = BitConverter.ToInt32(blockRequestBytes, 0);
+                    long requestStartIndex = BitConverter.ToInt32(blockRequestBytes, 0);
                     NetworkRead(networkStream, blockRequestBytes, 0, blockRequestBytes.Length, 10000);
 
-                    int requestBlocksNumber = BitConverter.ToInt32(blockRequestBytes, 0);
-                    for (int i = requestStartIndex; i < requestStartIndex + requestBlocksNumber; i++)
+                    long requestBlocksNumber = BitConverter.ToInt32(blockRequestBytes, 0);
+                    for (long i = requestStartIndex; i < requestStartIndex + requestBlocksNumber; i++)
                     {
-                        int filePosition = (int)(i * preferences.BlockSize);
+                        long filePosition = (i * preferences.BlockSize);
                         fileStream.Seek(filePosition, SeekOrigin.Begin);
-                        int blockSize;
+                        long blockSize;
                         long bytesLeft = fileStream.Length - filePosition;
                         if (bytesLeft > preferences.BlockSize)
                         {
-                            blockSize = (int)preferences.BlockSize;
+                            blockSize = preferences.BlockSize;
                         }
                         else
                         {
-                            blockSize = (int)bytesLeft;
+                            blockSize = bytesLeft;
                         }
 
-                        fileStream.Read(blockBytes, 0, blockSize);
+                        fileStream.Read(blockBytes, 0, (int)blockSize);
                         //FileHashBlock localBlock =
                         //FileHashListGenerator.CalculateBlock(blockBytes, 0, blockSize, preferences, i);
-                        NetworkWrite(networkStream, blockBytes, 0, blockSize);
+                        NetworkWrite(networkStream, blockBytes, 0, (int)blockSize);
                         serverNetStat.Payload += (ulong)(blockRequestBytes.Length);
                     }
                 }
@@ -347,6 +344,13 @@ namespace BlockShare.BlockSharing
                     {
                         ClientLoop(client);
                     }
+                }
+                catch(TimeoutException ex)
+                {
+                    Console.WriteLine("Client was timed out: \n" + ex.Message);
+#if DEBUG
+                    Console.WriteLine(ex.StackTrace);
+#endif
                 }
                 catch (Exception ex)
                 {

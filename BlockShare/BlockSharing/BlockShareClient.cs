@@ -320,7 +320,7 @@ namespace BlockShare.BlockSharing
             tcpClient.Close();
         }
 
-        public RemoteFileSystemViewer Browse(string serverIp, int serverPort, string directory)
+        public DirectoryDigest GetDirectoryDigest(string serverIp, int serverPort, string directory, int recursionLevel = int.MaxValue)
         {
             tcpClient = new TcpClient();
             tcpClient.Connect(serverIp, serverPort);
@@ -332,15 +332,17 @@ namespace BlockShare.BlockSharing
             byte[] fileNameBytes = Encoding.UTF8.GetBytes(directory);
             int fileNameLength = fileNameBytes.Length;
             byte[] fileNameLengthBytes = BitConverter.GetBytes(fileNameLength);
+            byte[] recursionLevelBytes = BitConverter.GetBytes(recursionLevel);
 
             NetworkWrite(networkStream, fileNameLengthBytes, 0, fileNameLengthBytes.Length);
             NetworkWrite(networkStream, fileNameBytes, 0, fileNameBytes.Length);
+            NetworkWrite(networkStream, recursionLevelBytes, 0, recursionLevelBytes.Length);
 
-            Log($"Requested {directory}", 0);
+            Log($"Requested [{directory}]", 0);
 
             byte[] entryTypeMessage = new byte[1];
             NetworkRead(networkStream, entryTypeMessage, 0, entryTypeMessage.Length, 0);
-            FileSystemEntryType entryType = (FileSystemEntryType) entryTypeMessage[0];
+            FileSystemEntryType entryType = (FileSystemEntryType)entryTypeMessage[0];
             switch (entryType)
             {
                 case FileSystemEntryType.NonExistent:
@@ -349,7 +351,7 @@ namespace BlockShare.BlockSharing
                     return null;
                 case FileSystemEntryType.File:
                     Log("Server reported, requested entry is a file", 0);
-                    
+
                     tcpClient.Close();
                     return null;
                 case FileSystemEntryType.Directory:
@@ -365,21 +367,18 @@ namespace BlockShare.BlockSharing
             Log($"Digest length: {digestSize}", 0);
             byte[] xmlDirectoryDigestBytes = new byte[digestSize];
             NetworkRead(networkStream, xmlDirectoryDigestBytes, 0, xmlDirectoryDigestBytes.Length, 0);
-            
-            /*            
-            string xmlDirectoryDigest = Encoding.UTF8.GetString(xmlDirectoryDigestBytes);
-            Log($"Digest received", 0);
-            XmlDocument xmlDocument = new XmlDocument();
-            xmlDocument.LoadXml(xmlDirectoryDigest);
-            Log($"Digest parsed to xml-dom", 0);
-            */
+
             tcpClient.Close();
 
             DirectoryDigest directoryDigest = DirectoryDigest.Deserialize(xmlDirectoryDigestBytes);
 
-            //string[] fileNames = Utils.GetFileNamesFromDigest(xmlDocument);
+            return directoryDigest;
+        }
 
-            return new RemoteFileSystemViewer(directoryDigest);
+        [Obsolete]
+        public RemoteFileSystemViewer Browse(string serverIp, int serverPort, string directory)
+        {
+            return new RemoteFileSystemViewer(GetDirectoryDigest(serverIp, serverPort, directory));
         }
     }    
 }

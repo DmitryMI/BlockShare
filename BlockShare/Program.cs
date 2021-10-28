@@ -8,6 +8,7 @@ using System.Text;
 using System.Threading.Tasks;
 using BlockShare.BlockSharing.HashMapping;
 using BlockShare.BlockSharing.RemoteFileSystem;
+using BlockShare.BlockSharing.DirectoryDigesting;
 
 namespace BlockShare
 {
@@ -181,22 +182,39 @@ namespace BlockShare
             Console.WriteLine("Prehashing finished");
         }
 
-        static void Browser(RemoteFileSystemViewer remoteViewer, string ip, string portStr, Preferences preferences, ILogger clientLogger, string fileName)
+        static void Browser(string ip, int port, Preferences preferences, ILogger clientLogger, string fileName)
         {
+            BlockShareClient client = new BlockShareClient(preferences, clientLogger);
+            DirectoryDigest rootDigest = client.GetDirectoryDigest(ip, port, fileName, 1);
+            if (rootDigest == null)
+            {
+                Console.WriteLine("Error during receiving remote file system info");
+                return;
+            }
+            
+            DirectoryDigest current = rootDigest;
+            Stack<DirectoryDigest> pathStack = new Stack<DirectoryDigest>();
             while (true)
             {
+                if (!current.IsLoaded)
+                {
+                    Console.WriteLine("Loading...");
+                    DirectoryDigest digest = client.GetDirectoryDigest(ip, port, current.RelativePath, 1 );
+                    current.LoadEntriesFrom(digest);
+                }
+
                 Console.Clear();
                 Console.ForegroundColor = ConsoleColor.White;
-                Console.WriteLine($"Current directory: {remoteViewer.CurrentDirectory.RemoteFullPath}\n");
+                Console.WriteLine($"Current directory: {current.RelativePath}\n");                
                 
                 Console.WriteLine("Directories: \n");
-                var dirs = remoteViewer.ListCurrentSubDirectories();
-                if (dirs.Length == 0)
+                var dirs = current.GetSubDirectories();
+                if (dirs.Count == 0)
                 {
                     Console.ForegroundColor = ConsoleColor.DarkGray;
                     Console.WriteLine("NO DIRECTORIES");
                 }
-                for (int i = 0; i < dirs.Length; i++)
+                for (int i = 0; i < dirs.Count; i++)
                 {
                     Console.ForegroundColor = ConsoleColor.Green;
                     Console.Write($"{i}. ");
@@ -204,21 +222,21 @@ namespace BlockShare
                     Console.Write(dirs[i].Name);
                     Console.Write($" ");
                     Console.ForegroundColor = ConsoleColor.DarkGray;
-                    string sizeFormat = Utils.FormatByteSize(dirs[i].CalculateSize());
+                    string sizeFormat = Utils.FormatByteSize(dirs[i].Size);
                     Console.WriteLine($"({sizeFormat})");
                 }
 
                 Console.WriteLine("\nFiles: \n");
-                var files = remoteViewer.ListCurrentFiles();
-                if (files.Length == 0)
+                var files = current.GetFiles();
+                if (files.Count == 0)
                 {
                     Console.ForegroundColor = ConsoleColor.DarkGray;
                     Console.WriteLine("NO FILES");
                 }
-                for (int i = 0; i < files.Length; i++)
+                for (int i = 0; i < files.Count; i++)
                 {
                     Console.ForegroundColor = ConsoleColor.Green;
-                    Console.Write($"{dirs.Length + i}. ");
+                    Console.Write($"{dirs.Count + i}. ");
                     Console.ForegroundColor = ConsoleColor.Gray;
                     Console.Write(files[i].Name);
                     Console.Write($" ");
@@ -252,30 +270,30 @@ namespace BlockShare
                         continue;
                     }
 
-                    if (index < dirs.Length)
+                    if (index < dirs.Count)
                     {
-                        entryName = dirs[index].RemoteFullPath;
+                        entryName = dirs[index].RelativePath;
                     }
                     else
                     {
-                        entryName = files[index - dirs.Length].RemoteFullPath;
+                        entryName = files[index - dirs.Count].RelativePath;
                     }
                 }
                 else
                 {
                     bool ok = int.TryParse(inputWords[0], out int enterIndex);
                     if (ok)
-                    {
-                        if (enterIndex < dirs.Length)
+                    {                        
+                        if (enterIndex < dirs.Count)
                         {
-                            entryName = dirs[enterIndex].RemoteFullPath;
+                            pathStack.Push(current);
+                            current = dirs[enterIndex];
                         }
                         else
                         {
-                            entryName = files[enterIndex - dirs.Length].RemoteFullPath;
+                           // TODO May be start downloading here?
                         }
-                        //remoteViewer.EnterFromCurrentDirectory(entryName);
-                        remoteViewer.EnterByAbsolutePath(entryName);
+
                         continue;
                     }
                 }
@@ -283,16 +301,31 @@ namespace BlockShare
                 switch (inputWords[0].ToUpper())
                 {
                     case "D":
-                        Download(ip, portStr, preferences, clientLogger, entryName);
+                        Download(ip, port.ToString(), preferences, clientLogger, entryName);
                         Console.WriteLine("Press any key to return to Browser mode...");
                         Console.ReadKey();
                         break;
                     case "E":
-                        //remoteViewer.EnterFromCurrentDirectory(entryName);
-                        remoteViewer.EnterByAbsolutePath(entryName);
+                        // TODO remoteViewer.EnterByAbsolutePath(entryName);
+                        bool ok = int.TryParse(inputWords[1], out int enterIndex);
+                        if (ok)
+                        {
+                            if (enterIndex < dirs.Count)
+                            {
+                                pathStack.Push(current);
+                                current = dirs[enterIndex];
+                            }
+                            else
+                            {
+                                // TODO May be start downloading here?
+                            }
+
+                            continue;
+                        }
                         break;
                     case "U":
-                        remoteViewer.GoUp();
+                        // TODO remoteViewer.GoUp();
+                        current = pathStack.Pop();
                         break;
                     case "Q":
                         return;
@@ -413,15 +446,8 @@ namespace BlockShare
                 BlockShareClient client = new BlockShareClient(preferences, clientLogger);
 
                 int port = int.Parse(portStr);
-                RemoteFileSystemViewer remoteViewer = client.Browse(ip, port, fileName);
-                if (remoteViewer != null)
-                {
-                    Browser(remoteViewer, ip, portStr, preferences, clientLogger, fileName);
-                }
-                else
-                {
-                    Console.WriteLine("Error during receiving remote file system info");
-                }
+                //RemoteFileSystemViewer remoteViewer = client.Browse(ip, port, fileName);
+                Browser(ip, port, preferences, clientLogger, fileName);
             }
 
             Console.WriteLine("Press any key to close...");
