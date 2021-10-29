@@ -217,12 +217,12 @@ namespace BlockShare.BlockSharing
 
             byte[] fileNameLengthBytes = new byte[sizeof(int)];
 
-            NetworkRead(tcpClient, networkStream, fileNameLengthBytes, 0, sizeof(int), 1000);
+            NetworkRead(tcpClient, networkStream, fileNameLengthBytes, 0, sizeof(int), 10000);
 
             int fileNameLength = BitConverter.ToInt32(fileNameLengthBytes, 0);
             byte[] fileNameBytes = new byte[fileNameLength];
 
-            NetworkRead(tcpClient, networkStream, fileNameBytes, 0, fileNameLength, 1000);
+            NetworkRead(tcpClient, networkStream, fileNameBytes, 0, fileNameLength, 10000);
 
             string fileName = Encoding.UTF8.GetString(fileNameBytes);
             string filePath = string.Empty;            
@@ -264,7 +264,7 @@ namespace BlockShare.BlockSharing
                 NetworkWrite(networkStream, entryTypeMessage, 0, entryTypeMessage.Length);
 
                 byte[] recursionLevelBytes = new byte[sizeof(int)];
-                NetworkRead(tcpClient, networkStream, recursionLevelBytes, 0, recursionLevelBytes.Length, 1000);
+                NetworkRead(tcpClient, networkStream, recursionLevelBytes, 0, recursionLevelBytes.Length, 10000);
                 int recursionLevel = BitConverter.ToInt32(recursionLevelBytes, 0);
                 Log($"Directory was requested. Generating XML digest with recursion level {recursionLevel}...", 0);
                 DirectoryInfo directoryInfo = new DirectoryInfo(filePath);
@@ -336,7 +336,7 @@ namespace BlockShare.BlockSharing
                 byte[] commndBytes = new byte[1];
                 while (tcpClient.Connected)
                 {
-                    NetworkRead(tcpClient, networkStream, commndBytes, 0, commndBytes.Length, 1000);
+                    NetworkRead(tcpClient, networkStream, commndBytes, 0, commndBytes.Length, 120000);
                     byte commandByte = commndBytes[0];
                     Command command = (Command)commandByte;
                     if (command == Command.Terminate)
@@ -346,10 +346,10 @@ namespace BlockShare.BlockSharing
                     }
 
                     //networkStream.Read(blockRequestBytes, 0, blockRequestBytes.Length);
-                    NetworkRead(tcpClient, networkStream, blockRequestBytes, 0, blockRequestBytes.Length, 1000);
+                    NetworkRead(tcpClient, networkStream, blockRequestBytes, 0, blockRequestBytes.Length, 10000);
 
                     long requestStartIndex = BitConverter.ToInt32(blockRequestBytes, 0);
-                    NetworkRead(tcpClient, networkStream, blockRequestBytes, 0, blockRequestBytes.Length, 1000);
+                    NetworkRead(tcpClient, networkStream, blockRequestBytes, 0, blockRequestBytes.Length, 10000);
 
                     long requestBlocksNumber = BitConverter.ToInt32(blockRequestBytes, 0);
                     for (long i = requestStartIndex; i < requestStartIndex + requestBlocksNumber; i++)

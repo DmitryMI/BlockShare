@@ -70,18 +70,18 @@ namespace BlockShare.BlockSharing.Gui
             this.FileSystemList = new System.Windows.Forms.ListBox();
             this.ActiveConnectionsList = new System.Windows.Forms.ListBox();
             this.StatusStrip = new System.Windows.Forms.StatusStrip();
+            this.ListeningLabel = new System.Windows.Forms.ToolStripStatusLabel();
             this.DownSpeedLabel = new System.Windows.Forms.ToolStripStatusLabel();
             this.UpSpeedLabel = new System.Windows.Forms.ToolStripStatusLabel();
             this.StopButton = new System.Windows.Forms.Button();
             this.StartButton = new System.Windows.Forms.Button();
-            this.ListeningLabel = new System.Windows.Forms.ToolStripStatusLabel();
             this.StatusStrip.SuspendLayout();
             this.SuspendLayout();
             // 
             // InfoTimer
             // 
             this.InfoTimer.Enabled = true;
-            this.InfoTimer.Interval = 500;
+            this.InfoTimer.Interval = 2000;
             this.InfoTimer.Tick += new System.EventHandler(this.InfoTimer_Tick);
             // 
             // HashingProgressBar
@@ -128,6 +128,12 @@ namespace BlockShare.BlockSharing.Gui
             this.StatusStrip.TabIndex = 4;
             this.StatusStrip.Text = "statusStrip1";
             // 
+            // ListeningLabel
+            // 
+            this.ListeningLabel.Name = "ListeningLabel";
+            this.ListeningLabel.Size = new System.Drawing.Size(97, 17);
+            this.ListeningLabel.Text = "Listening to: N/A";
+            // 
             // DownSpeedLabel
             // 
             this.DownSpeedLabel.Name = "DownSpeedLabel";
@@ -160,12 +166,6 @@ namespace BlockShare.BlockSharing.Gui
             this.StartButton.Text = "Start Server";
             this.StartButton.UseVisualStyleBackColor = true;
             this.StartButton.Click += new System.EventHandler(this.StartButton_Click);
-            // 
-            // ListeningLabel
-            // 
-            this.ListeningLabel.Name = "ListeningLabel";
-            this.ListeningLabel.Size = new System.Drawing.Size(97, 17);
-            this.ListeningLabel.Text = "Listening to: N/A";
             // 
             // ServerForm
             // 
