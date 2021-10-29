@@ -47,7 +47,7 @@ namespace BlockShare.BlockSharing
             for (int i = 0; i < blocksCount; i++)
             {
                 byte[] hash = new byte[Preferences.HashSize];
-                int filePosition = (int)(i * preferences.BlockSize);
+                long filePosition = i * preferences.BlockSize;
                 serializationStream.Read(hash, 0, hash.Length);
                 hashBlocks[i] = new FileHashBlock(filePosition, hash);
                 dirtyBlocks[i] = false;
