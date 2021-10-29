@@ -81,7 +81,7 @@ namespace BlockShare.BlockSharing.Gui
             // InfoTimer
             // 
             this.InfoTimer.Enabled = true;
-            this.InfoTimer.Interval = 1000;
+            this.InfoTimer.Interval = 500;
             this.InfoTimer.Tick += new System.EventHandler(this.InfoTimer_Tick);
             // 
             // HashingProgressBar
@@ -217,6 +217,8 @@ namespace BlockShare.BlockSharing.Gui
 
         private void StartButton_Click(object sender, EventArgs e)
         {
+            StartButton.Enabled = false;
+
             blockShareServer = new BlockShareServer(Preferences, this, null);
             RegisterForEvents();
             blockShareServer.StartServer();

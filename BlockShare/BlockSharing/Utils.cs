@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
 using System.Linq;
+using System.Net.Sockets;
 using System.Text;
 using System.Threading.Tasks;
 using System.Xml;
@@ -12,13 +13,18 @@ namespace BlockShare.BlockSharing
 {
     static class Utils
     {
-        public static void ReadPackage(Stream stream, byte[] package, int offset, int length, long timeoutMillis)
+        public class ClientDisconnectedException : Exception
+        {
+
+        }
+
+        public static void ReadPackage(TcpClient tcpClient, Stream stream, byte[] package, int offset, int length, long timeoutMillis)
         {
             //Console.WriteLine($"[UTILS] Waiting for package of length: {length}");
             int bytesRead = 0;
             Stopwatch sw = new Stopwatch();
             sw.Start();
-            while (bytesRead < length)
+            while (bytesRead < length && tcpClient.Connected)
             {
                 int stepOffset = offset + bytesRead;
                 int stepLength = length - bytesRead;
@@ -37,6 +43,11 @@ namespace BlockShare.BlockSharing
             }
             sw.Stop();
             //Console.WriteLine($"[UTILS] Package received");
+
+            if(!tcpClient.Connected)
+            {
+                throw new ClientDisconnectedException();
+            }
         }
 
         public static string PrintHex(byte[] array, int offset, int length)

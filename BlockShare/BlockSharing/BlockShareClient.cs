@@ -35,9 +35,9 @@ namespace BlockShare.BlockSharing
             clientNetStat.TotalSent += (ulong)length;
         }
 
-        private void NetworkRead(NetworkStream stream, byte[] data, int offset, int length, long timeout)
+        private void NetworkRead(TcpClient tcpClient, NetworkStream stream, byte[] data, int offset, int length, long timeout)
         {
-            Utils.ReadPackage(stream, data, offset, length, timeout);
+            Utils.ReadPackage(tcpClient, stream, data, offset, length, timeout);
             clientNetStat.TotalReceived += (ulong)length;
         }
 
@@ -71,7 +71,7 @@ namespace BlockShare.BlockSharing
             }
         }
 
-        private void DownloadFileInternal(NetworkStream networkStream, string fileName, IProgressReporter localHashProgress, IProgressReporter downloadProgress, int jobId)
+        private void DownloadFileInternal(TcpClient tcpClient, NetworkStream networkStream, string fileName, IProgressReporter localHashProgress, IProgressReporter downloadProgress, int jobId)
         {
             //string localFileHashlistName = fileName + Preferences.HashpartExtension;
             //string localFileHashlistPath = Path.Combine(preferences.ClientStoragePath, localFileHashlistName);
@@ -114,18 +114,18 @@ namespace BlockShare.BlockSharing
 
                 byte[] fileLengthBytes = new byte[sizeof(long)];
                 //networkStream.Read(fileLengthBytes, 0, fileLengthBytes.Length);
-                NetworkRead(networkStream, fileLengthBytes, 0, fileLengthBytes.Length, 0);
+                NetworkRead(tcpClient, networkStream, fileLengthBytes, 0, fileLengthBytes.Length, 0);
                 long fileLength = BitConverter.ToInt64(fileLengthBytes, 0);
                 Log($"File length: {fileLength}", 2);
 
                 byte[] hashListLengthBytes = new byte[sizeof(int)];
                 //networkStream.Read(hashListLengthBytes, 0, hashListLengthBytes.Length);
-                NetworkRead(networkStream, hashListLengthBytes, 0, hashListLengthBytes.Length, 10000);
+                NetworkRead(tcpClient, networkStream, hashListLengthBytes, 0, hashListLengthBytes.Length, 10000);
                 int hashListLength = BitConverter.ToInt32(hashListLengthBytes, 0);
 
                 byte[] hashListBytes = new byte[hashListLength];
                 //networkStream.Read(hashListBytes, 0, hashListLength);
-                NetworkRead(networkStream, hashListBytes, 0, hashListLength, 10000);
+                NetworkRead(tcpClient, networkStream, hashListBytes, 0, hashListLength, 10000);
                 FileHashList remoteHashList = FileHashList.Deserialise(hashListBytes, null, preferences);
 
                 Log($"Hashlist blocks count: {remoteHashList.BlocksCount}", 2);
@@ -180,7 +180,7 @@ namespace BlockShare.BlockSharing
                             blockSize = (int) bytesLeft;
                         }
 
-                        NetworkRead(networkStream, blockBytes, 0, blockSize, 0);
+                        NetworkRead(tcpClient, networkStream, blockBytes, 0, blockSize, 0);
                         clientNetStat.Payload += (ulong) blockSize;
 
                         bool doSaveBlock = false;
@@ -242,7 +242,7 @@ namespace BlockShare.BlockSharing
             Log($"Requested {fileName}", 0);
 
             byte[] entryTypeMessage = new byte[1];
-            NetworkRead(networkStream, entryTypeMessage, 0, entryTypeMessage.Length, 0);
+            NetworkRead(tcpClient, networkStream, entryTypeMessage, 0, entryTypeMessage.Length, 0);
             FileSystemEntryType entryType = (FileSystemEntryType) entryTypeMessage[0];
             switch (entryType)
             {
@@ -266,11 +266,11 @@ namespace BlockShare.BlockSharing
                 NetworkWrite(networkStream, recursionLevelBytes, 0, recursionLevelBytes.Length);
 
                 byte[] digestSizeBytes = new byte[sizeof(int)];
-                NetworkRead(networkStream, digestSizeBytes, 0, digestSizeBytes.Length, 0);
+                NetworkRead(tcpClient, networkStream, digestSizeBytes, 0, digestSizeBytes.Length, 0);
                 int digestSize = BitConverter.ToInt32(digestSizeBytes, 0);
                 Log($"Digest length: {digestSize}", 0);
                 byte[] xmlDirectoryDigestBytes = new byte[digestSize];
-                NetworkRead(networkStream, xmlDirectoryDigestBytes, 0, xmlDirectoryDigestBytes.Length, 0);
+                NetworkRead(tcpClient, networkStream, xmlDirectoryDigestBytes, 0, xmlDirectoryDigestBytes.Length, 0);
               
                 DirectoryDigest directoryDigest = DirectoryDigest.Deserialize(xmlDirectoryDigestBytes);
 
@@ -291,7 +291,7 @@ namespace BlockShare.BlockSharing
                     Log($"Requested file {fileDigest.RelativePath}\nWaiting for entry type message...", 1);
 
                     entryTypeMessage = new byte[1];
-                    NetworkRead(networkStream, entryTypeMessage, 0, entryTypeMessage.Length, 0);
+                    NetworkRead(tcpClient, networkStream, entryTypeMessage, 0, entryTypeMessage.Length, 0);
                     entryType = (FileSystemEntryType) entryTypeMessage[0];
 
                     if (entryType != FileSystemEntryType.File)
@@ -301,7 +301,7 @@ namespace BlockShare.BlockSharing
 
                     Log($"Entry type: {entryType}", 2);
 
-                    DownloadFileInternal(networkStream, fileDigest.RelativePath, localHashProgress, downloadProgress, index);
+                    DownloadFileInternal(tcpClient, networkStream, fileDigest.RelativePath, localHashProgress, downloadProgress, index);
 
                     downloadProgress?.ReportOverallProgress(this, (double) index / allFiles.Count);
                 }
@@ -309,7 +309,7 @@ namespace BlockShare.BlockSharing
                 return;
             }
 
-            DownloadFileInternal(networkStream, fileName, localHashProgress, downloadProgress, 0);
+            DownloadFileInternal(tcpClient, networkStream, fileName, localHashProgress, downloadProgress, 0);
             
             tcpClient.Close();
         }
@@ -335,7 +335,7 @@ namespace BlockShare.BlockSharing
             Log($"Requested [{directory}]", 0);
 
             byte[] entryTypeMessage = new byte[1];
-            NetworkRead(networkStream, entryTypeMessage, 0, entryTypeMessage.Length, 0);
+            NetworkRead(tcpClient, networkStream, entryTypeMessage, 0, entryTypeMessage.Length, 0);
             FileSystemEntryType entryType = (FileSystemEntryType)entryTypeMessage[0];
             switch (entryType)
             {
@@ -356,11 +356,11 @@ namespace BlockShare.BlockSharing
             }
 
             byte[] digestSizeBytes = new byte[sizeof(int)];
-            NetworkRead(networkStream, digestSizeBytes, 0, digestSizeBytes.Length, 0);
+            NetworkRead(tcpClient, networkStream, digestSizeBytes, 0, digestSizeBytes.Length, 0);
             int digestSize = BitConverter.ToInt32(digestSizeBytes, 0);
             Log($"Digest length: {digestSize}", 0);
             byte[] xmlDirectoryDigestBytes = new byte[digestSize];
-            NetworkRead(networkStream, xmlDirectoryDigestBytes, 0, xmlDirectoryDigestBytes.Length, 0);
+            NetworkRead(tcpClient, networkStream, xmlDirectoryDigestBytes, 0, xmlDirectoryDigestBytes.Length, 0);
 
             tcpClient.Close();
 
