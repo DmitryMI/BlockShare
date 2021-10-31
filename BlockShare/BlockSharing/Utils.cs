@@ -7,6 +7,7 @@ using System.Net.Sockets;
 using System.Text;
 using System.Threading.Tasks;
 using System.Xml;
+using BlockShare.BlockSharing.BlockShareTypes;
 using Microsoft.SqlServer.Server;
 
 namespace BlockShare.BlockSharing
@@ -48,7 +49,7 @@ namespace BlockShare.BlockSharing
             {
                 throw new ClientDisconnectedException();
             }
-        }
+        }        
 
         public static string PrintHex(byte[] array, int offset, int length)
         {

@@ -4,12 +4,12 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
-namespace BlockShare.BlockSharing
+namespace BlockShare.BlockSharing.BlockShareTypes
 {
-    public enum FileSystemEntryType : byte
+    public enum ClientLoopResult
     {
-        NonExistent,
-        File,
-        Directory
+        Continue,
+        Disconnect,
+
     }
 }

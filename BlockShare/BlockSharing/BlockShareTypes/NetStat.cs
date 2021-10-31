@@ -4,13 +4,13 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
-namespace BlockShare.BlockSharing
+namespace BlockShare.BlockSharing.BlockShareTypes
 {
     public class NetStat : ICloneable
     {
         public ulong TotalReceived { get; set; }
         public ulong TotalSent { get; set; }
-        public ulong Payload{ get; set; }
+        public ulong Payload { get; set; }
 
         public static NetStat operator -(NetStat a, NetStat b)
         {

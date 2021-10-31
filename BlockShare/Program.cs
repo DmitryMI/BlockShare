@@ -12,6 +12,7 @@ using BlockShare.BlockSharing.DirectoryDigesting;
 using System.Windows.Forms;
 using System.Runtime.InteropServices;
 using BlockShare.BlockSharing.Gui;
+using BlockShare.BlockSharing.BlockShareTypes;
 
 namespace BlockShare
 {

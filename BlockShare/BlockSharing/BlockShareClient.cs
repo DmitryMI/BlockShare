@@ -6,6 +6,7 @@ using System.Net.Sockets;
 using System.Text;
 using System.Threading.Tasks;
 using System.Xml;
+using BlockShare.BlockSharing.BlockShareTypes;
 using BlockShare.BlockSharing.DirectoryDigesting;
 using BlockShare.BlockSharing.RemoteFileSystem;
 using Microsoft.SqlServer.Server;

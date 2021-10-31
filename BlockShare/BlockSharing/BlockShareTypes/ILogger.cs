@@ -4,11 +4,10 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
-namespace BlockShare.BlockSharing
+namespace BlockShare.BlockSharing.BlockShareTypes
 {
-    enum Command
+    public interface ILogger
     {
-        NextBlock,
-        Terminate
+        void Log(string message);
     }
 }
