@@ -20,8 +20,6 @@ namespace BlockShare.BlockSharing
 
         private IPEndPoint localEndpoint;
 
-        public IProgressReporter HashListGeneratorReporter { get; set; }
-
         public ILogger Logger { get; set; }
 
         private Task worker;
@@ -36,6 +34,9 @@ namespace BlockShare.BlockSharing
         public event Action<BlockShareServer, IPEndPoint> OnClientDisconnected;
         public event Action<BlockShareServer> OnServerStopped;
         public event Action<BlockShareServer, string> OnUnhandledException;
+
+        public event Action<BlockShareServer, string, double> OnHashingProgressChanged;
+        public event Action<BlockShareServer, string> OnHashingFinished;
         #endregion
 
         public IPEndPoint[] GetActiveClients()
@@ -64,17 +65,15 @@ namespace BlockShare.BlockSharing
             return tcpListener.Server.LocalEndPoint.ToString();
         }
 
-        public BlockShareServer(string ip, int port, Preferences preferences, IProgressReporter hashProgress, ILogger logger)
+        public BlockShareServer(string ip, int port, Preferences preferences, ILogger logger)
         {
-            HashListGeneratorReporter = hashProgress;
             this.preferences = preferences;
             Logger = logger;
             localEndpoint = new IPEndPoint(IPAddress.Parse(ip), port);
         }
 
-        public BlockShareServer(Preferences preferences, IProgressReporter hashProgress, ILogger logger)
+        public BlockShareServer(Preferences preferences, ILogger logger)
         {
-            HashListGeneratorReporter = hashProgress;
             this.preferences = preferences;
             Logger = logger;
             localEndpoint = new IPEndPoint(IPAddress.Parse(preferences.ServerIp), preferences.ServerPort);
@@ -253,6 +252,21 @@ namespace BlockShare.BlockSharing
             return filePath;
         }
 
+        private void OnHashListGeneratorProgress(Stream fileStream, double progress)
+        {
+            FileStream fs = (FileStream)fileStream;
+            string fileName = fs.Name;
+            OnHashingProgressChanged?.Invoke(this, fileName, progress);
+        }
+
+        private void OnHashListGeneratorFinished(Stream fileStream)
+        {
+            FileStream fs = (FileStream)fileStream;
+            string fileName = fs.Name;
+            OnHashingFinished?.Invoke(this, fileName);
+        }
+
+
         private ClientLoopResult ClientLoop(TcpClient tcpClient)
         {
             NetworkStream networkStream = tcpClient.GetStream();
@@ -336,7 +350,7 @@ namespace BlockShare.BlockSharing
                             Log(
                                 $"Calculating hash list for file {getHashlistPath} by request of {tcpClient.Client.RemoteEndPoint}...", 2);
                             hashList = FileHashListGenerator.GenerateHashList(fileStream, null, preferences,
-                                HashListGeneratorReporter);
+                                OnHashListGeneratorProgress, OnHashListGeneratorFinished);
                             hashListSerialized = hashList.Serialize();
                             using (FileStream fileHashListStream =
                                 new FileStream(fileHashListPath, FileMode.CreateNew, FileAccess.Write))
@@ -537,7 +551,7 @@ namespace BlockShare.BlockSharing
                     Log(
                         $"Calculating hash list for file {filePath} by request of {tcpClient.Client.RemoteEndPoint}...", 2);
                     hashList = FileHashListGenerator.GenerateHashList(fileStream, null, preferences,
-                        HashListGeneratorReporter);
+                        OnHashListGeneratorProgress, OnHashListGeneratorFinished);
                     hashListSerialized = hashList.Serialize();
                     using (FileStream fileHashListStream =
                         new FileStream(fileHashListPath, FileMode.CreateNew, FileAccess.Write))

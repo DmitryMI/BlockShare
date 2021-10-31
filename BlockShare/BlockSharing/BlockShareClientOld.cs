@@ -83,7 +83,7 @@ namespace BlockShare.BlockSharing
                 {
                     Log($"Local hashpart file is empty or does not exist, rehashing...", 2);
                     localHashList = FileHashListGenerator.GenerateHashList(localFileStream, localFileHashlistStream,
-                        preferences, localHashProgress);
+                        preferences);
                     localHashList.Flush();
                 }
                 else

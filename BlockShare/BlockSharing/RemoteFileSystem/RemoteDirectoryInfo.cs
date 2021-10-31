@@ -7,6 +7,7 @@ using System.Threading.Tasks;
 
 namespace BlockShare.BlockSharing.RemoteFileSystem
 {
+    [Obsolete]
     public class RemoteDirectoryInfo : RemoteFileSystemEntryInfo, IList<RemoteFileSystemEntryInfo>
     {
         private readonly List<RemoteFileSystemEntryInfo> entries = new List<RemoteFileSystemEntryInfo>();

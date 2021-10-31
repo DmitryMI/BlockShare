@@ -20,6 +20,9 @@ namespace BlockShare
     {
         private class ConsoleLogger : ILogger
         {
+            private Dictionary<string, double> hashingProgressTable = new Dictionary<string, double>();
+            private Dictionary<string, double> downloadingProgressTable = new Dictionary<string, double>();
+
             public string Prefix { get; set; }
             
             public ConsoleLogger(string prefix)
@@ -30,65 +33,64 @@ namespace BlockShare
             {
                 Console.WriteLine(Prefix + " " + message);
             }
-        }
 
-        private class ConsoleProgressReporter : IProgressReporter
-        {
-            private string message;
-            private double overallProgress;
-            private List<double> previousProgressList = new List<double>();
-            private double reportingStep = 0.01f;
-            public ConsoleProgressReporter(string message)
+            public void OnHashingProgressChanged(string file, double progress)
             {
-                this.message = message;
-            }
-            public void ReportFinishing(object sender, bool success, int jobId)
-            {
-                Console.WriteLine(message + ": finished");
-            }
-
-            public void ReportOverallProgress(object sender, double progress)
-            {
-                if (progress - overallProgress < reportingStep)
+                if(!hashingProgressTable.ContainsKey(file))
                 {
-                    return;
-                }
-                overallProgress = progress;
-                Console.WriteLine(message + $": {progress * 100.0:0.00}");
-
-            }
-
-            public void ReportOverallFinishing(object sender, bool success)
-            {
-                Console.WriteLine(message + " (all jobs): finished");
-            }
-
-            public void ReportProgress(object sender, double progress, int jobId)
-            {
-                while (previousProgressList.Count <= jobId)
-                {
-                    previousProgressList.Add(0.0f);
+                    hashingProgressTable.Add(file, 0);                    
                 }
 
-                if(progress - previousProgressList[jobId] < reportingStep)
+                double prevProgress = hashingProgressTable[file];
+                if (progress - prevProgress > 0.01f)
                 {
-                    return;
-                }
-                previousProgressList[jobId] = progress;
-                Console.WriteLine(message + $"(job {jobId}): {progress*100.0:0.00}");
+                    Console.WriteLine(Prefix + $" Hashing {file}: {progress * 100.0:F1}%");
+                    hashingProgressTable[file] = progress;
+                }                
             }
-        }
 
-        static void Download(Preferences preferences, ILogger clientLogger, string fileName)
+            public void OnBlockDownloaded(string file, FileHashList remoteHashList, FileHashList localHashList, int block)
+            {
+                double previousProgress = 0;
+                double progress = (double)localHashList.BlocksCount / remoteHashList.BlocksCount;
+                if (!downloadingProgressTable.ContainsKey(file))
+                {
+                    downloadingProgressTable.Add(file, progress);                    
+                }
+                else
+                {
+                    previousProgress = downloadingProgressTable[file];
+                }
+
+                if (progress - previousProgress >= 0.01f)
+                {
+                    Console.WriteLine(Prefix + $" Downloading {file}: {progress * 100.0:F1}%");
+                    downloadingProgressTable[file] = progress;
+                }                
+            }
+
+            public void OnHashingFinished(string file)
+            {
+                Console.WriteLine(Prefix + $" Hashing {file}: finished");
+                hashingProgressTable.Remove(file);
+            }
+
+            public void OnDownloadingFinished(string file)
+            {
+                Console.WriteLine(Prefix + $" Downloading {file}: finished");
+                downloadingProgressTable.Remove(file);
+            }
+        }        
+
+        
+
+        static void Download(BlockShareClient client, Preferences preferences, ILogger clientLogger, string fileName)
         {
             if (fileName[0] == Path.DirectorySeparatorChar || fileName[0] == Path.AltDirectorySeparatorChar)
             {
                 fileName = fileName.Remove(0, 1);
             }
 
-            //BlockShareClientOld client = new BlockShareClientOld(preferences, clientLogger);
-            BlockShareClient client = new BlockShareClient(preferences, clientLogger);
-           
             Stopwatch sw = Stopwatch.StartNew();
             client.DownloadFile(fileName);
             sw.Stop();
@@ -307,7 +309,7 @@ namespace BlockShare
                 switch (inputWords[0].ToUpper())
                 {
                     case "D":
-                        Download(preferences, clientLogger, entryName);
+                        Download(client, preferences, clientLogger, entryName);
                         Console.WriteLine("Press any key to return to Browser mode...");
                         Console.ReadKey();
                         break;
@@ -482,19 +484,31 @@ namespace BlockShare
             if (mode == "server")
             {
                 int port = int.Parse(portStr);
-                BlockShareServer server = new BlockShareServer(ip, port, preferences, new ConsoleProgressReporter("Hashing: "), serverLogger);
+                
+                BlockShareServer server = new BlockShareServer(ip, port, preferences, serverLogger);
+                server.OnHashingProgressChanged += (serverRef, fileNameRef, progress)=>serverLogger.OnHashingProgressChanged(fileNameRef, progress);
+                server.OnHashingFinished += (serverRef, fileNameRef) => serverLogger.OnHashingFinished(fileNameRef);
                 server.StartServer();
             }
             
             if(mode == "client")
             {
-                Download(preferences, clientLogger, fileName);
+                BlockShareClient client = new BlockShareClient(preferences, clientLogger);
+                client.OnHashingProgressChanged += (clientRef, fileNameRef, progress) => clientLogger.OnHashingProgressChanged(fileNameRef, progress);
+                client.OnHashingFinished += (clientRef, fileNameRef) => clientLogger.OnHashingFinished(fileNameRef);
+                client.OnBlockDownloaded += (clientRef, fileNameRef, remote, local, block) => clientLogger.OnBlockDownloaded(fileNameRef, remote, local, block);
+                client.OnDownloadingFinished += (clientRef, fileNameRef ) => clientLogger.OnDownloadingFinished(fileNameRef);
+                Download(client, preferences, clientLogger, fileName);
             }
 
             if (mode == "browser")
             {
                 //BlockShareClientOld client = new BlockShareClientOld(preferences, clientLogger);
                 BlockShareClient client = new BlockShareClient(preferences, clientLogger);
+                client.OnHashingProgressChanged += (clientRef, fileNameRef, progress) => clientLogger.OnHashingProgressChanged(fileNameRef, progress);
+                client.OnHashingFinished += (clientRef, fileNameRef) => clientLogger.OnHashingFinished(fileNameRef);
+                client.OnBlockDownloaded += (clientRef, fileNameRef, remote, local, block) => clientLogger.OnBlockDownloaded(fileNameRef, remote, local, block);
+                client.OnDownloadingFinished += (clientRef, fileNameRef) => clientLogger.OnDownloadingFinished(fileNameRef);
 
                 Browser(client, preferences, clientLogger, fileName);
             }

@@ -11,7 +11,7 @@ namespace BlockShare.BlockSharing
 {
     public static class FileHashListGenerator
     {
-        public static FileHashList GenerateHashList(Stream fileStream, Stream serializationStream, Preferences preferences, IProgressReporter progressReporter)
+        public static FileHashList GenerateHashList(Stream fileStream, Stream serializationStream, Preferences preferences, Action<Stream, double> onHashingProgressChanged = null, Action<Stream> onHashingFinished = null)
         {
             SHA256 sha256 = SHA256.Create();
 
@@ -34,15 +34,15 @@ namespace BlockShare.BlockSharing
                 hashList[i] = hashBlock;
 
                 double progress = (double)i / blocksCount;
-                progressReporter?.ReportOverallProgress(null, progress);
+
+                onHashingProgressChanged?.Invoke(fileStream, progress);
             }
-
-            progressReporter?.ReportOverallFinishing(null, true);
-
+            onHashingFinished?.Invoke(fileStream);
             return hashList;
         }
 
-        public static void GenerateHashList(Stream fileStream, Preferences preferences, FileHashList hashList, IProgressReporter progressReporter)
+        [Obsolete]
+        public static void GenerateHashList(Stream fileStream, Preferences preferences, FileHashList hashList, Action<Stream, double> onHashingProgressChanged = null, Action<Stream> onHashingFinished = null)
         {
             SHA256 sha256 = SHA256.Create();
 
@@ -63,9 +63,11 @@ namespace BlockShare.BlockSharing
                 hashList[i] = hashBlock;
 
                 double progress = (double)i / blocksCount;
-                progressReporter?.ReportOverallProgress(null, progress);
+                //progressReporter?.ReportOverallProgress(null, progress);
+                onHashingProgressChanged?.Invoke(fileStream, progress);
             }
-            progressReporter?.ReportOverallProgress(null, 1.0f);
+            //progressReporter?.ReportOverallProgress(null, 1.0f);
+            onHashingFinished?.Invoke(fileStream);
         }
 
         public static FileHashBlock CalculateBlock(Stream fileStream, Preferences preferences, int blockIndex)

@@ -6,6 +6,7 @@ using System.Threading.Tasks;
 
 namespace BlockShare.BlockSharing.BlockShareTypes
 {
+    [Obsolete]
     public interface IProgressReporter
     {
         void ReportProgress(object sender, double progress, int jobId);

@@ -9,7 +9,7 @@ using System.Windows.Forms;
 
 namespace BlockShare.BlockSharing.Gui
 {
-    public class ServerForm : Form, IProgressReporter
+    public class ServerForm : Form
     {
         private Timer InfoTimer;
         private System.ComponentModel.IContainer components;
@@ -222,7 +222,7 @@ namespace BlockShare.BlockSharing.Gui
         {
             StartButton.Enabled = false;
 
-            blockShareServer = new BlockShareServer(Preferences, this, null);
+            blockShareServer = new BlockShareServer(Preferences, null);
             RegisterForEvents();
             blockShareServer.StartServer();
 

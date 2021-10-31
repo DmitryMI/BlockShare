@@ -154,7 +154,7 @@ namespace BlockShare.BlockSharing.BlockShareTypes
             return value;
         }
 
-        public static void WriteToClient(BlockShareCommand command, TcpClient tcpClient, NetStat netStat)
+        public static void WriteToClient(BlockShareCommand command, TcpClient tcpClient, NetStat netStat, ILogger logger = null)
         {
             NetworkStream networkStream = tcpClient.GetStream();
 
@@ -162,10 +162,10 @@ namespace BlockShare.BlockSharing.BlockShareTypes
             commandTypeBytes[0] = (byte)command.CommandType;
             networkStream.Write(commandTypeBytes, 0, commandTypeBytes.Length);
             command.WriteValuesToClient(tcpClient, netStat);
-            Console.WriteLine($"--> {command}");
+            logger?.Log($"--> {command}");
         }
 
-        public static T ReadFromClient<T>(TcpClient tcpClient, NetStat netStat, long timeout, Preferences preferences = null) where T : BlockShareCommand
+        public static T ReadFromClient<T>(TcpClient tcpClient, NetStat netStat, long timeout, Preferences preferences = null, ILogger logger = null) where T : BlockShareCommand
         {            
             NetworkStream networkStream = tcpClient.GetStream();
             byte[] commandTypeBytes = new byte[1];
@@ -180,7 +180,7 @@ namespace BlockShare.BlockSharing.BlockShareTypes
             command.Preferences = preferences;
             command.ReadValuesFromClient(tcpClient, netStat, timeout);
 
-            Console.WriteLine($"<-- {command}");
+            logger?.Log($"<-- {command}");
 
             return command;
         }

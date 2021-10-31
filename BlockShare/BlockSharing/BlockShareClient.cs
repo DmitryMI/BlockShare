@@ -24,6 +24,13 @@ namespace BlockShare.BlockSharing
 
         public ILogger Logger { get; set; }
 
+        #region Events
+        public event Action<BlockShareClient, string, double> OnHashingProgressChanged;
+        public event Action<BlockShareClient, string> OnHashingFinished;
+        public event Action<BlockShareClient, string, FileHashList, FileHashList, int> OnBlockDownloaded;
+        public event Action<BlockShareClient, string> OnDownloadingFinished;
+        #endregion
+
         private void Log(string message, int withVerbosity)
         {
             if (withVerbosity <= preferences.Verbosity)
@@ -81,6 +88,20 @@ namespace BlockShare.BlockSharing
             clientNetStat.TotalReceived += (ulong)length;
         }
 
+        private void OnHashListGeneratorProgress(Stream stream, double progress)
+        {
+            FileStream fileStream = (FileStream)stream;
+            string fileName = fileStream.Name;
+            OnHashingProgressChanged?.Invoke(this, fileName, progress);
+        }
+
+        private void OnHashListGeneratorFinished(Stream stream)
+        {
+            FileStream fileStream = (FileStream)stream;
+            string fileName = fileStream.Name;
+            OnHashingFinished?.Invoke(this, fileName);
+        }
+
         private void DownloadFileInternal(string fileName, int index)
         {
             string localFilePath = Path.Combine(preferences.ClientStoragePath, fileName);
@@ -110,7 +131,7 @@ namespace BlockShare.BlockSharing
                 {
                     Log($"Local hashpart file is empty or does not exist, rehashing...", 2);
                     localHashList = FileHashListGenerator.GenerateHashList(localFileStream, localFileHashlistStream,
-                         preferences, null);
+                         preferences, OnHashListGeneratorProgress, OnHashListGeneratorFinished);
 
                     localHashList.Flush();
                 }
@@ -203,14 +224,13 @@ namespace BlockShare.BlockSharing
                         {
                             localFileStream.Seek(filePos, SeekOrigin.Begin);
                             localFileStream.Write(blockBytes, 0, blockSize);
+                            OnBlockDownloaded?.Invoke(this, fileName, remoteHashList, localHashList, j);
                             //downloadProgress?.ReportProgress(this, (double)j / remoteHashList.BlocksCount, jobId);
                         }
                     }
                 }
             }
 
-            //NetworkWrite(networkStream, new byte[] { (byte)Command.Terminate }, 0, 1);
-            //downloadProgress?.ReportFinishing(this, true, jobId);
             Log($"Downloading finished", 0);
         }
 
@@ -252,7 +272,7 @@ namespace BlockShare.BlockSharing
                 for (var index = 0; index < allFiles.Count; index++)
                 {
                     DownloadFileInternal(allFiles[index].RelativePath, index);
-
+                    OnDownloadingFinished?.Invoke(this, allFiles[index].RelativePath);
                     //downloadProgress?.ReportOverallProgress(this, (double)index / allFiles.Count);
                 }
             }
@@ -260,6 +280,8 @@ namespace BlockShare.BlockSharing
             {
                 DownloadFileInternal(entryName, 0);
             }
+
+            OnDownloadingFinished?.Invoke(this, entryName);
         }
 
         #region Dispose

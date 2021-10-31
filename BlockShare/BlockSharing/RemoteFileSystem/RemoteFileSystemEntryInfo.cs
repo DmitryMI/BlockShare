@@ -6,6 +6,7 @@ using System.Threading.Tasks;
 
 namespace BlockShare.BlockSharing.RemoteFileSystem
 {
+    [Obsolete]
     public class RemoteFileSystemEntryInfo
     {
         public string RemoteFullPath { get; private set; }

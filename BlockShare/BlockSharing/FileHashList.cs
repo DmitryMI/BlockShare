@@ -151,7 +151,6 @@ namespace BlockShare.BlockSharing
                 dirtyBlocks[block] = true;
             }
         }
-
         IEnumerator IEnumerable.GetEnumerator()
         {
             throw new NotImplementedException();

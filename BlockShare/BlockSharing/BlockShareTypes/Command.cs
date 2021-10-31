@@ -6,6 +6,7 @@ using System.Threading.Tasks;
 
 namespace BlockShare.BlockSharing.BlockShareTypes
 {
+    [Obsolete]
     enum Command
     {
         NextBlock,

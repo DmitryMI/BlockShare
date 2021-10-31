@@ -97,6 +97,11 @@
     <Compile Include="BlockSharing\BlockShareTypes\BlockShareCommand.cs" />
     <Compile Include="BlockSharing\BlockShareTypes\ClientLoopResult.cs" />
     <Compile Include="BlockSharing\BlockShareTypes\Command.cs" />
+    <Compile Include="BlockSharing\ConsolePrinting\ConsoleCanvas.cs" />
+    <Compile Include="BlockSharing\ConsolePrinting\ConsoleElement.cs" />
+    <Compile Include="BlockSharing\ConsolePrinting\ConsoleProgressBar.cs" />
+    <Compile Include="BlockSharing\ConsolePrinting\ConsoleProgressPrinter.cs" />
+    <Compile Include="BlockSharing\ConsolePrinting\Point.cs" />
     <Compile Include="BlockSharing\DirectoryDigesting\DirectoryDigest.cs" />
     <Compile Include="BlockSharing\DirectoryDigesting\FileDigest.cs" />
     <Compile Include="BlockSharing\FileHashBlock.cs" />

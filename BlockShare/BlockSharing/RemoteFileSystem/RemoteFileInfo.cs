@@ -7,6 +7,7 @@ using BlockShare.BlockSharing.DirectoryDigesting;
 
 namespace BlockShare.BlockSharing.RemoteFileSystem
 {
+    [Obsolete]
     public class RemoteFileInfo : RemoteFileSystemEntryInfo
     {
         private readonly FileDigest fileDigest;
