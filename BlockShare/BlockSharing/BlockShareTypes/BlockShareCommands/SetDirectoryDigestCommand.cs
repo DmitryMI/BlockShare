@@ -25,5 +25,10 @@ namespace BlockShare.BlockSharing.BlockShareTypes.BlockShareCommands
         {
             XmlPayload = ReadString(tcpClient, netStat, timeout);
         }
+
+        public override string ToString()
+        {
+            return $"SetDirectoryDigest(XmlPayloadLength: {XmlPayload.Length})";
+        }
     }
 }

@@ -220,6 +220,14 @@ namespace BlockShare.BlockSharing.DirectoryDigesting
             return directoryDigest;
         }
 
+        public static DirectoryDigest FromXmlString(string xmlString)
+        {
+            XmlDocument doc = new XmlDocument();
+            doc.LoadXml(xmlString);
+
+            return FromXmlDocument(doc);
+        }
+
         public DirectoryDigest(XmlElement xmlElementDigest)
         {
             FromXmlElement(xmlElementDigest);

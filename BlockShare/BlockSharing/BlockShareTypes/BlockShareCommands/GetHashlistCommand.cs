@@ -13,7 +13,13 @@ namespace BlockShare.BlockSharing.BlockShareTypes.BlockShareCommands
 
         public GetHashlistCommand()
         {
-            CommandType = BlockShareCommandType.GetHashlist;
+            CommandType = BlockShareCommandType.GetHashList;
+        }
+
+        public GetHashlistCommand(string path)
+        {
+            CommandType = BlockShareCommandType.GetHashList;
+            Path = path;
         }
 
         public override void WriteValuesToClient(TcpClient tcpClient, NetStat netStat)
@@ -24,6 +30,11 @@ namespace BlockShare.BlockSharing.BlockShareTypes.BlockShareCommands
         protected override void ReadValuesFromClient(TcpClient tcpClient, NetStat netStat, long timeout)
         {
             Path = ReadString(tcpClient, netStat, timeout);
+        }
+
+        public override string ToString()
+        {
+            return $"GetHashList(Path: {Path})";
         }
     }
 }

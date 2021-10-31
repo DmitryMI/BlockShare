@@ -23,5 +23,10 @@ namespace BlockShare.BlockSharing.BlockShareTypes.BlockShareCommands
         {
             
         }
+
+        public override string ToString()
+        {
+            return $"InvalidOperation()";
+        }
     }
 }

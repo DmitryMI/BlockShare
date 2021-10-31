@@ -49,5 +49,10 @@ namespace BlockShare.BlockSharing.BlockShareTypes.BlockShareCommands
         {
             EntryType = ReadEntryType(tcpClient, netStat, timeout);
         }
+
+        public override string ToString()
+        {
+            return $"SetEntryType(EntryType: {EntryType})";
+        }
     }
 }

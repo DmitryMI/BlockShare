@@ -19,6 +19,27 @@ namespace BlockShare.BlockSharing
 
         }
 
+        public static void EnsurePathExists(DirectoryInfo rootDirInfo, FileInfo fileInfo)
+        {
+            Stack<DirectoryInfo> pathStack = new Stack<DirectoryInfo>();
+            DirectoryInfo parent = fileInfo.Directory;
+
+            while (parent != null && !Utils.ArePathsEqual(parent.FullName, rootDirInfo.FullName))
+            {
+                pathStack.Push(parent);
+                parent = parent.Parent;
+            }
+
+            while (pathStack.Count > 0)
+            {
+                DirectoryInfo dir = pathStack.Pop();
+                if (!Directory.Exists(dir.FullName))
+                {
+                    Directory.CreateDirectory(dir.FullName);                    
+                }
+            }
+        }
+
         public static void ReadPackage(TcpClient tcpClient, Stream stream, byte[] package, int offset, int length, long timeoutMillis)
         {
             //Console.WriteLine($"[UTILS] Waiting for package of length: {length}");

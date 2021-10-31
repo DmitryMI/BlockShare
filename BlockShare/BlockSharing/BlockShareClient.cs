@@ -1,68 +1,28 @@
-﻿using System;
+﻿using BlockShare.BlockSharing.BlockShareTypes;
+using BlockShare.BlockSharing.BlockShareTypes.BlockShareCommands;
+using BlockShare.BlockSharing.DirectoryDigesting;
+using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Net.Sockets;
 using System.Text;
 using System.Threading.Tasks;
-using System.Xml;
-using BlockShare.BlockSharing.BlockShareTypes;
-using BlockShare.BlockSharing.DirectoryDigesting;
-using BlockShare.BlockSharing.RemoteFileSystem;
-using Microsoft.SqlServer.Server;
 
 namespace BlockShare.BlockSharing
 {
-    public class BlockShareClient
+    class BlockShareClient : IDisposable
     {
         private TcpClient tcpClient;
 
         private Preferences preferences;
 
         private NetStat clientNetStat = new NetStat();
+        private bool disposedValue;
+
         public NetStat GetClientNetStat => clientNetStat.CloneNetStat();
 
         public ILogger Logger { get; set; }
-
-        public BlockShareClient(Preferences preferences, ILogger logger)
-        {
-            this.preferences = preferences;
-            Logger = logger;
-        }
-
-        private void NetworkWrite(NetworkStream stream, byte[] data, int offset, int length)
-        {
-            stream.Write(data, offset, length);
-            clientNetStat.TotalSent += (ulong)length;
-        }
-
-        private void NetworkRead(TcpClient tcpClient, NetworkStream stream, byte[] data, int offset, int length, long timeout)
-        {
-            Utils.ReadPackage(tcpClient, stream, data, offset, length, timeout);
-            clientNetStat.TotalReceived += (ulong)length;
-        }
-
-        private void EnsurePathExists(DirectoryInfo rootDirInfo, FileInfo fileInfo)
-        {
-            Stack<DirectoryInfo> pathStack = new Stack<DirectoryInfo>();
-            DirectoryInfo parent = fileInfo.Directory;
-
-            while (parent != null && !Utils.ArePathsEqual(parent.FullName, rootDirInfo.FullName))
-            {
-                pathStack.Push(parent);
-                parent = parent.Parent;
-            }
-
-            while (pathStack.Count > 0)
-            {
-                DirectoryInfo dir = pathStack.Pop();
-                if (!Directory.Exists(dir.FullName))
-                {
-                    Directory.CreateDirectory(dir.FullName);
-                    Log($"Created directory: {dir.FullName}", 3);
-                }
-            }
-        }
 
         private void Log(string message, int withVerbosity)
         {
@@ -72,11 +32,57 @@ namespace BlockShare.BlockSharing
             }
         }
 
-        private void DownloadFileInternal(TcpClient tcpClient, NetworkStream networkStream, string fileName, IProgressReporter localHashProgress, IProgressReporter downloadProgress, int jobId)
+        public BlockShareClient(Preferences preferences, ILogger logger)
         {
-            //string localFileHashlistName = fileName + Preferences.HashpartExtension;
-            //string localFileHashlistPath = Path.Combine(preferences.ClientStoragePath, localFileHashlistName);
+            this.preferences = preferences;
+            Logger = logger;
 
+            tcpClient = new TcpClient();
+            tcpClient.Connect(preferences.ServerIp, preferences.ServerPort);
+
+            Log($"Connected to server {preferences.ServerIp} {preferences.ServerPort}", 0);
+        }
+
+        public DirectoryDigest GetDirectoryDigest(string directory, int recursionLevel = int.MaxValue)
+        {
+            GetDirectoryDigestCommand getCommand = new GetDirectoryDigestCommand(directory, recursionLevel);
+            BlockShareCommand.WriteToClient(getCommand, tcpClient, clientNetStat);
+
+            Log($"Requested digest for [{directory}]", 0);
+
+            //SetEntryTypeCommand setEntryTypeCommand = (SetEntryTypeCommand)BlockShareCommand.ReadFromClient(tcpClient, clientNetStat, 10000);
+            SetDirectoryDigestCommand setDirectoryDigestCommand;
+            BlockShareCommand response = BlockShareCommand.ReadFromClient(tcpClient, clientNetStat, 10000);
+            if(response.CommandType == BlockShareCommandType.InvalidOperation)
+            {
+                Log("Server refused to serve this operation", 0);
+                return null;
+            }
+            else if(response.CommandType == BlockShareCommandType.SetDirectoryDigest)
+            {
+                setDirectoryDigestCommand = (SetDirectoryDigestCommand)response;
+            }
+            else
+            {
+                Log($"Unexpected command {response.CommandType} from server. Aborting", 0);
+                return null;
+            }
+            string xmlDigest = setDirectoryDigestCommand.XmlPayload;
+
+            DirectoryDigest directoryDigest = DirectoryDigest.FromXmlString(xmlDigest);
+
+            return directoryDigest;
+        }
+
+        private void NetworkRead(TcpClient tcpClient, byte[] data, int offset, int length, long timeout)
+        {
+            NetworkStream stream = tcpClient.GetStream();
+            Utils.ReadPackage(tcpClient, stream, data, offset, length, timeout);
+            clientNetStat.TotalReceived += (ulong)length;
+        }
+
+        private void DownloadFileInternal(string fileName, int index)
+        {
             string localFilePath = Path.Combine(preferences.ClientStoragePath, fileName);
             string localFileHashlistPath = preferences.HashMapper.GetHashpartFile(localFilePath);
 
@@ -88,7 +94,7 @@ namespace BlockShare.BlockSharing
             FileInfo localFileInfo = new FileInfo(localFilePath);
             DirectoryInfo rootDirectoryInfo = new DirectoryInfo(preferences.ClientStoragePath);
 
-            EnsurePathExists(rootDirectoryInfo, localFileInfo);
+            Utils.EnsurePathExists(rootDirectoryInfo, localFileInfo);
 
             if (!File.Exists(localFileInfo.FullName))
             {
@@ -104,7 +110,8 @@ namespace BlockShare.BlockSharing
                 {
                     Log($"Local hashpart file is empty or does not exist, rehashing...", 2);
                     localHashList = FileHashListGenerator.GenerateHashList(localFileStream, localFileHashlistStream,
-                        preferences, localHashProgress);
+                         preferences, null);
+
                     localHashList.Flush();
                 }
                 else
@@ -112,23 +119,11 @@ namespace BlockShare.BlockSharing
                     Log($"{localHashList.BlocksCount} hashes deserialized from local hashpart file", 2);
                 }
 
+                GetHashlistCommand getHashlistCommand = new GetHashlistCommand(fileName);
+                BlockShareCommand.WriteToClient(getHashlistCommand, tcpClient, clientNetStat);
 
-                byte[] fileLengthBytes = new byte[sizeof(long)];
-                //networkStream.Read(fileLengthBytes, 0, fileLengthBytes.Length);
-                NetworkRead(tcpClient, networkStream, fileLengthBytes, 0, fileLengthBytes.Length, 0);
-                long fileLength = BitConverter.ToInt64(fileLengthBytes, 0);
-                Log($"File length: {fileLength}", 2);
-
-                byte[] hashListLengthBytes = new byte[sizeof(int)];
-                //networkStream.Read(hashListLengthBytes, 0, hashListLengthBytes.Length);
-                NetworkRead(tcpClient, networkStream, hashListLengthBytes, 0, hashListLengthBytes.Length, 10000);
-                int hashListLength = BitConverter.ToInt32(hashListLengthBytes, 0);
-
-                byte[] hashListBytes = new byte[hashListLength];
-                //networkStream.Read(hashListBytes, 0, hashListLength);
-                NetworkRead(tcpClient, networkStream, hashListBytes, 0, hashListLength, 10000);
-                FileHashList remoteHashList = FileHashList.Deserialise(hashListBytes, null, preferences);
-
+                SetHashlistCommand setHashlistCommand = BlockShareCommand.ReadFromClient<SetHashlistCommand>(tcpClient, clientNetStat, 0);
+                FileHashList remoteHashList = FileHashList.Deserialise(setHashlistCommand.HashlistSerialized, null, preferences);
                 Log($"Hashlist blocks count: {remoteHashList.BlocksCount}", 2);
 
                 byte[] blockBytes = new byte[preferences.BlockSize];
@@ -160,29 +155,26 @@ namespace BlockShare.BlockSharing
 
                     Log(
                         $"Requesting range {requestStartIndex}-{requestStartIndex + requestBlocksNumber}: {remoteBlock}", 1);
-                    NetworkWrite(networkStream, new byte[] { (byte)Command.NextBlock }, 0, 1);
-                    byte[] requestStartIndexBytes = BitConverter.GetBytes(requestStartIndex);
-                    NetworkWrite(networkStream, requestStartIndexBytes, 0, requestStartIndexBytes.Length);
-                    byte[] requestBlocksNumberBytes = BitConverter.GetBytes(requestBlocksNumber);
-                    NetworkWrite(networkStream, requestBlocksNumberBytes, 0, requestBlocksNumberBytes.Length);
-
+ 
+                    GetBlockRangeCommand getBlockRangeCommand = new GetBlockRangeCommand(fileName, requestStartIndex, requestBlocksNumber);
+                    BlockShareCommand.WriteToClient(getBlockRangeCommand, tcpClient, clientNetStat);
                     for (int j = requestStartIndex; j < requestStartIndex + requestBlocksNumber; j++)
                     {
                         remoteBlock = remoteHashList[j];
                         long filePos = j * preferences.BlockSize;
-                        long bytesLeft = fileLength - filePos;
+                        long bytesLeft = setHashlistCommand.FileLength - filePos;
                         int blockSize;
                         if (bytesLeft > preferences.BlockSize)
                         {
-                            blockSize = (int) preferences.BlockSize;
+                            blockSize = (int)preferences.BlockSize;
                         }
                         else
                         {
-                            blockSize = (int) bytesLeft;
+                            blockSize = (int)bytesLeft;
                         }
 
-                        NetworkRead(tcpClient, networkStream, blockBytes, 0, blockSize, 0);
-                        clientNetStat.Payload += (ulong) blockSize;
+                        NetworkRead(tcpClient, blockBytes, 0, blockSize, 0);
+                        clientNetStat.Payload += (ulong)blockSize;
 
                         bool doSaveBlock = false;
 
@@ -211,45 +203,31 @@ namespace BlockShare.BlockSharing
                         {
                             localFileStream.Seek(filePos, SeekOrigin.Begin);
                             localFileStream.Write(blockBytes, 0, blockSize);
-                            downloadProgress?.ReportProgress(this, (double) j / remoteHashList.BlocksCount, jobId);
+                            //downloadProgress?.ReportProgress(this, (double)j / remoteHashList.BlocksCount, jobId);
                         }
                     }
                 }
             }
 
-            NetworkWrite(networkStream, new byte[] { (byte)Command.Terminate }, 0, 1);
-            downloadProgress?.ReportFinishing(this, true, jobId);
+            //NetworkWrite(networkStream, new byte[] { (byte)Command.Terminate }, 0, 1);
+            //downloadProgress?.ReportFinishing(this, true, jobId);
             Log($"Downloading finished", 0);
         }
 
-        public void DownloadFile(string serverIp, int serverPort, string fileName, IProgressReporter localHashProgress,
-            IProgressReporter downloadProgress)
+        public void DownloadFile(string entryName)
         {
+            GetEntryTypeCommand getEntryTypeCommand = new GetEntryTypeCommand(entryName);
+            BlockShareCommand.WriteToClient(getEntryTypeCommand, tcpClient, clientNetStat);
+            Log($"Requested entry {entryName}", 0);
 
-            tcpClient = new TcpClient();
-            tcpClient.Connect(serverIp, serverPort);
+            SetEntryTypeCommand setEntryTypeCommand = BlockShareCommand.ReadFromClient<SetEntryTypeCommand>(tcpClient, clientNetStat, 10000);
 
-            Log($"Connected to server {serverIp} {serverPort}", 0);
+            FileSystemEntryType entryType = setEntryTypeCommand.EntryType;
 
-            NetworkStream networkStream = tcpClient.GetStream();
-
-            byte[] fileNameBytes = Encoding.UTF8.GetBytes(fileName);
-            int fileNameLength = fileNameBytes.Length;
-            byte[] fileNameLengthBytes = BitConverter.GetBytes(fileNameLength);
-
-            NetworkWrite(networkStream, fileNameLengthBytes, 0, fileNameLengthBytes.Length);
-            NetworkWrite(networkStream, fileNameBytes, 0, fileNameBytes.Length);
-
-            Log($"Requested {fileName}", 0);
-
-            byte[] entryTypeMessage = new byte[1];
-            NetworkRead(tcpClient, networkStream, entryTypeMessage, 0, entryTypeMessage.Length, 0);
-            FileSystemEntryType entryType = (FileSystemEntryType) entryTypeMessage[0];
             switch (entryType)
             {
                 case FileSystemEntryType.NonExistent:
                     Log("Server refused to send requested entry, because it does not exist", 0);
-                    tcpClient.Close();
                     return;
                 case FileSystemEntryType.File:
                     Log("Server reported, requested entry is a file", 0);
@@ -263,117 +241,59 @@ namespace BlockShare.BlockSharing
 
             if (entryType == FileSystemEntryType.Directory)
             {
-                byte[] recursionLevelBytes = BitConverter.GetBytes(int.MaxValue);
-                NetworkWrite(networkStream, recursionLevelBytes, 0, recursionLevelBytes.Length);
+                GetDirectoryDigestCommand getDirectoryDigestCommand = new GetDirectoryDigestCommand(entryName, int.MaxValue);
+                BlockShareCommand.WriteToClient(getDirectoryDigestCommand, tcpClient, clientNetStat);
 
-                byte[] digestSizeBytes = new byte[sizeof(int)];
-                NetworkRead(tcpClient, networkStream, digestSizeBytes, 0, digestSizeBytes.Length, 0);
-                int digestSize = BitConverter.ToInt32(digestSizeBytes, 0);
-                Log($"Digest length: {digestSize}", 0);
-                byte[] xmlDirectoryDigestBytes = new byte[digestSize];
-                NetworkRead(tcpClient, networkStream, xmlDirectoryDigestBytes, 0, xmlDirectoryDigestBytes.Length, 0);
-              
-                DirectoryDigest directoryDigest = DirectoryDigest.Deserialize(xmlDirectoryDigestBytes);
+                SetDirectoryDigestCommand setDirectoryDigestCommand = BlockShareCommand.ReadFromClient<SetDirectoryDigestCommand>(tcpClient, clientNetStat, 0);
+                DirectoryDigest directoryDigest = DirectoryDigest.FromXmlString(setDirectoryDigestCommand.XmlPayload);
 
                 IReadOnlyList<FileDigest> allFiles = directoryDigest.GetFilesRecursive();
                 Log($"Files to load: {allFiles.Count}", 0);
                 for (var index = 0; index < allFiles.Count; index++)
                 {
-                    //var name = fileNames[index];
-                    FileDigest fileDigest = allFiles[index];
-                    
-                    fileNameBytes = Encoding.UTF8.GetBytes(fileDigest.RelativePath);
-                    fileNameLength = fileNameBytes.Length;
-                    fileNameLengthBytes = BitConverter.GetBytes(fileNameLength);
+                    DownloadFileInternal(allFiles[index].RelativePath, index);
 
-                    NetworkWrite(networkStream, fileNameLengthBytes, 0, fileNameLengthBytes.Length);
-                    NetworkWrite(networkStream, fileNameBytes, 0, fileNameBytes.Length);
+                    //downloadProgress?.ReportOverallProgress(this, (double)index / allFiles.Count);
+                }
+            }
+            else
+            {
+                DownloadFileInternal(entryName, 0);
+            }
+        }
 
-                    Log($"Requested file {fileDigest.RelativePath}\nWaiting for entry type message...", 1);
-
-                    entryTypeMessage = new byte[1];
-                    NetworkRead(tcpClient, networkStream, entryTypeMessage, 0, entryTypeMessage.Length, 0);
-                    entryType = (FileSystemEntryType) entryTypeMessage[0];
-
-                    if (entryType != FileSystemEntryType.File)
-                    {
-                        throw new ArgumentException("Error: Server reported, requested entry is not a file");
-                    }
-
-                    Log($"Entry type: {entryType}", 2);
-
-                    DownloadFileInternal(tcpClient, networkStream, fileDigest.RelativePath, localHashProgress, downloadProgress, index);
-
-                    downloadProgress?.ReportOverallProgress(this, (double) index / allFiles.Count);
+        #region Dispose
+        protected virtual void Dispose(bool disposing)
+        {
+            if (!disposedValue)
+            {
+                if (disposing)
+                {
+                    // TODO: dispose managed state (managed objects)
+                    DisconnectCommand disconnectCommand = new DisconnectCommand();
+                    BlockShareCommand.WriteToClient(disconnectCommand, tcpClient, clientNetStat);
+                    tcpClient.Dispose();
                 }
 
-                return;
+                // TODO: free unmanaged resources (unmanaged objects) and override finalizer
+                // TODO: set large fields to null                
+                disposedValue = true;
             }
-
-            DownloadFileInternal(tcpClient, networkStream, fileName, localHashProgress, downloadProgress, 0);
-            
-            tcpClient.Close();
         }
 
-        public DirectoryDigest GetDirectoryDigest(string serverIp, int serverPort, string directory, int recursionLevel = int.MaxValue)
+        // // TODO: override finalizer only if 'Dispose(bool disposing)' has code to free unmanaged resources
+        // ~BlockShareClient()
+        // {
+        //     // Do not change this code. Put cleanup code in 'Dispose(bool disposing)' method
+        //     Dispose(disposing: false);
+        // }
+
+        void IDisposable.Dispose()
         {
-            tcpClient = new TcpClient();
-            tcpClient.Connect(serverIp, serverPort);
-
-            Log($"Connected to server {serverIp} {serverPort}", 0);
-
-            NetworkStream networkStream = tcpClient.GetStream();
-
-            byte[] fileNameBytes = Encoding.UTF8.GetBytes(directory);
-            int fileNameLength = fileNameBytes.Length;
-            byte[] fileNameLengthBytes = BitConverter.GetBytes(fileNameLength);
-            byte[] recursionLevelBytes = BitConverter.GetBytes(preferences.BrowserRecursionLevel);
-
-            NetworkWrite(networkStream, fileNameLengthBytes, 0, fileNameLengthBytes.Length);
-            NetworkWrite(networkStream, fileNameBytes, 0, fileNameBytes.Length);
-            NetworkWrite(networkStream, recursionLevelBytes, 0, recursionLevelBytes.Length);
-
-            Log($"Requested [{directory}]", 0);
-
-            byte[] entryTypeMessage = new byte[1];
-            NetworkRead(tcpClient, networkStream, entryTypeMessage, 0, entryTypeMessage.Length, 0);
-            FileSystemEntryType entryType = (FileSystemEntryType)entryTypeMessage[0];
-            switch (entryType)
-            {
-                case FileSystemEntryType.NonExistent:
-                    Log("Server refused to send requested entry, because it does not exist", 0);
-                    tcpClient.Close();
-                    return null;
-                case FileSystemEntryType.File:
-                    Log("Server reported, requested entry is a file", 0);
-
-                    tcpClient.Close();
-                    return null;
-                case FileSystemEntryType.Directory:
-                    Log("Server reported, requested entry is a directory", 0);
-                    break;
-                default:
-                    throw new ArgumentOutOfRangeException(nameof(entryType), "Unknown File System Entry Type");
-            }
-
-            byte[] digestSizeBytes = new byte[sizeof(int)];
-            NetworkRead(tcpClient, networkStream, digestSizeBytes, 0, digestSizeBytes.Length, 0);
-            int digestSize = BitConverter.ToInt32(digestSizeBytes, 0);
-            Log($"Digest length: {digestSize}", 0);
-            byte[] xmlDirectoryDigestBytes = new byte[digestSize];
-            NetworkRead(tcpClient, networkStream, xmlDirectoryDigestBytes, 0, xmlDirectoryDigestBytes.Length, 0);
-
-            tcpClient.Close();
-
-            DirectoryDigest directoryDigest = DirectoryDigest.Deserialize(xmlDirectoryDigestBytes);
-
-            return directoryDigest;
+            // Do not change this code. Put cleanup code in 'Dispose(bool disposing)' method
+            Dispose(disposing: true);
+            GC.SuppressFinalize(this);
         }
-
-        [Obsolete]
-        public RemoteFileSystemViewer Browse(string serverIp, int serverPort, string directory)
-        {
-            return new RemoteFileSystemViewer(GetDirectoryDigest(serverIp, serverPort, directory));
-        }
-    }    
+        #endregion Dispose
+    }
 }

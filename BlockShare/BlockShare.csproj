@@ -79,6 +79,7 @@
   </ItemGroup>
   <ItemGroup>
     <Compile Include="BlockSharing\BlockShareClient.cs" />
+    <Compile Include="BlockSharing\BlockShareClientOld.cs" />
     <Compile Include="BlockSharing\BlockShareServer.cs" />
     <Compile Include="BlockSharing\BlockShareTypes\BlockShareCommands\InvalidOperationCommand.cs" />
     <Compile Include="BlockSharing\BlockShareTypes\BlockShareCommands\OkCommand.cs" />
@@ -87,7 +88,10 @@
     <Compile Include="BlockSharing\BlockShareTypes\BlockShareCommands\GetBlockRangeCommand.cs" />
     <Compile Include="BlockSharing\BlockShareTypes\BlockShareCommands\GetHashlistCommand.cs" />
     <Compile Include="BlockSharing\BlockShareTypes\BlockShareCommands\GetEntryTypeCommand.cs" />
+    <Compile Include="BlockSharing\BlockShareTypes\BlockShareCommands\OpenFileCommand.cs" />
+    <Compile Include="BlockSharing\BlockShareTypes\BlockShareCommands\SetBlockCommand.cs" />
     <Compile Include="BlockSharing\BlockShareTypes\BlockShareCommands\SetDirectoryDigestCommand.cs" />
+    <Compile Include="BlockSharing\BlockShareTypes\BlockShareCommands\SetEntryTypeCommand.cs" />
     <Compile Include="BlockSharing\BlockShareTypes\BlockShareCommands\SetHashlistCommand.cs" />
     <Compile Include="BlockSharing\BlockShareTypes\BlockShareCommandType.cs" />
     <Compile Include="BlockSharing\BlockShareTypes\BlockShareCommand.cs" />

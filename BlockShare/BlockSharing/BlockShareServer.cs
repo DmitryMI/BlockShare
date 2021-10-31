@@ -231,19 +231,46 @@ namespace BlockShare.BlockSharing
 
         }
 
+        private string GetPath(string relativePath)
+        {
+            string filePath = string.Empty;
+            try
+            {
+                filePath = Path.Combine(preferences.ServerStoragePath, relativePath);
+            }
+            catch (ArgumentNullException argEx)
+            {
+                Log("Argument was null: \n" + argEx.Message, 0);
+            }
+            catch (ArgumentException ex)
+            {
+                Log("Argument exception occured: \n" + ex.Message, 0);
+
+                // Stupid workaround
+                filePath = PathCombineWorkaround(preferences.ServerStoragePath, relativePath);
+                Log($"Using workaround for stupid Path.Combine: {filePath}", 0);
+            }
+            return filePath;
+        }
+
         private ClientLoopResult ClientLoop(TcpClient tcpClient)
         {
             NetworkStream networkStream = tcpClient.GetStream();
 
             Log($"Waiting for commands from {tcpClient.Client.RemoteEndPoint}...", 1);
 
-            BlockShareCommand command = BlockShareCommand.ReadFromClient(tcpClient, serverNetStat, 60000);
+            BlockShareCommand command = BlockShareCommand.ReadFromClient(tcpClient, serverNetStat, 0);
 
             switch (command.CommandType)
             {
                 case BlockShareCommandType.GetDirectoryDigest:
                     GetDirectoryDigestCommand getDirectoryDigestCommand = (GetDirectoryDigestCommand)command;
-                    if (!CheckRequestValidity(getDirectoryDigestCommand.Path))
+
+                    string digestFilePath = GetPath(getDirectoryDigestCommand.Path);                                        
+
+                    Log($"Client request received: {digestFilePath}", 0);
+
+                    if (!CheckRequestValidity(digestFilePath))
                     {
                         Log($"Client request was invalid: {getDirectoryDigestCommand.Path}", 0);
                         //NetworkWrite(networkStream, new byte[] { (byte)BlockShareResponseType.InvalidOperation }, 0, 1);
@@ -253,7 +280,7 @@ namespace BlockShare.BlockSharing
                         return ClientLoopResult.Disconnect;
                     }
 
-                    if (!Directory.Exists(getDirectoryDigestCommand.Path))
+                    if (!Directory.Exists(digestFilePath))
                     {
                         //NetworkWrite(networkStream, new byte[] { (byte)BlockShareResponseType.InvalidOperation }, 0, 1);
                         InvalidOperationCommand invalidOperationCommand = new InvalidOperationCommand();
@@ -263,7 +290,7 @@ namespace BlockShare.BlockSharing
                     }
 
                     Log($"Generating XML digest with recursion level {getDirectoryDigestCommand.RecursionLevel}...", 0);
-                    DirectoryInfo directoryInfo = new DirectoryInfo(getDirectoryDigestCommand.Path);
+                    DirectoryInfo directoryInfo = new DirectoryInfo(digestFilePath);
                     DirectoryInfo rootDirectoryInfo = new DirectoryInfo(preferences.ServerStoragePath);
                     DirectoryDigest directoryDigest = new DirectoryDigest(directoryInfo, rootDirectoryInfo, getDirectoryDigestCommand.RecursionLevel);
 
@@ -284,17 +311,18 @@ namespace BlockShare.BlockSharing
 
                 case BlockShareCommandType.GetHashList:
                     GetHashlistCommand getHashlistCommand = (GetHashlistCommand)command;
-                    if (!CheckRequestValidity(getHashlistCommand.Path))
+                    string getHashlistPath = GetPath(getHashlistCommand.Path);
+                    if (!CheckRequestValidity(getHashlistPath))
                     {
                         InvalidOperationCommand invalidOperationCommand = new InvalidOperationCommand();
                         BlockShareCommand.WriteToClient(invalidOperationCommand, tcpClient, serverNetStat);
 
                         return ClientLoopResult.Continue;
                     }
-                    using (FileStream fileStream = new FileStream(getHashlistCommand.Path, FileMode.Open, FileAccess.Read))
+                    using (FileStream fileStream = new FileStream(getHashlistPath, FileMode.Open, FileAccess.Read))
                     {
                         //string fileHashListName = fileName + Preferences.HashlistExtension;
-                        string fileHashListPath = preferences.HashMapper.GetHashlistFile(getHashlistCommand.Path);
+                        string fileHashListPath = preferences.HashMapper.GetHashlistFile(getHashlistPath);
                         //Log($"Hashlist file name: {fileHashListName}", 2);
 
                         byte[] hashListSerialized = null;
@@ -306,7 +334,7 @@ namespace BlockShare.BlockSharing
                         if (!File.Exists(fileHashListPath))
                         {
                             Log(
-                                $"Calculating hash list for file {getHashlistCommand.Path} by request of {tcpClient.Client.RemoteEndPoint}...", 2);
+                                $"Calculating hash list for file {getHashlistPath} by request of {tcpClient.Client.RemoteEndPoint}...", 2);
                             hashList = FileHashListGenerator.GenerateHashList(fileStream, null, preferences,
                                 HashListGeneratorReporter);
                             hashListSerialized = hashList.Serialize();
@@ -319,7 +347,7 @@ namespace BlockShare.BlockSharing
                         else
                         {
                             Log(
-                                $"Reading hash list of file {getHashlistCommand.Path} by request of {tcpClient.Client.RemoteEndPoint}...", 2);
+                                $"Reading hash list of file {getHashlistPath} by request of {tcpClient.Client.RemoteEndPoint}...", 2);
                             using (FileStream fileHashListStream =
                                 new FileStream(fileHashListPath, FileMode.Open, FileAccess.Read))
                             {
@@ -333,7 +361,7 @@ namespace BlockShare.BlockSharing
                         setHashlistCommand.HashlistSerialized = hashListSerialized;
                         BlockShareCommand.WriteToClient(setHashlistCommand, tcpClient, serverNetStat);
 
-                        Log($"Hash list for file {getHashlistCommand.Path} sent to {tcpClient.Client.RemoteEndPoint}.", 1);
+                        Log($"Hash list for file {getHashlistPath} sent to {tcpClient.Client.RemoteEndPoint}.", 1);
                     }
                     return ClientLoopResult.Continue;
 
@@ -342,8 +370,15 @@ namespace BlockShare.BlockSharing
                     //byte[] blockRequestBytes = new byte[sizeof(int)];
                     byte[] blockBytes = new byte[preferences.BlockSize];
                     GetBlockRangeCommand getBlockRangeCommand = (GetBlockRangeCommand)command;
+                    string getBlocksFilePath = GetPath(getBlockRangeCommand.Path);
+
+                    if(!CheckRequestValidity(getBlocksFilePath))
+                    {
+                        // FIXME Shitty method to deal with such request.
+                        return ClientLoopResult.Disconnect;
+                    }
                     
-                    using (FileStream fileStream = new FileStream(getBlockRangeCommand.Path, FileMode.Open, FileAccess.Read))
+                    using (FileStream fileStream = new FileStream(getBlocksFilePath, FileMode.Open, FileAccess.Read))
                     {
                         long requestStartIndex = getBlockRangeCommand.BlockIndex;
                         long requestBlocksNumber = getBlockRangeCommand.BlocksCount;
@@ -376,20 +411,21 @@ namespace BlockShare.BlockSharing
                 case BlockShareCommandType.GetEntryType:
                     //string getEntryTypeRelativePath = ReadString(tcpClient, 10000);
                     GetEntryTypeCommand getEntryTypeCommand = (GetEntryTypeCommand)command;
-                    if (!CheckRequestValidity(getEntryTypeCommand.Path))
+                    string getEntryTypePath = GetPath(getEntryTypeCommand.Path);
+                    if (!CheckRequestValidity(getEntryTypePath))
                     {
                         Log($"Client request was invalid: {getEntryTypeCommand.Path}", 0);
                         //NetworkWrite(networkStream, new byte[] { (byte)BlockShareCommandType.Ok, (byte)FileSystemEntryType.NonExistent }, 0, 2);
                         SetEntryTypeCommand setEntryTypeCommand = new SetEntryTypeCommand(FileSystemEntryType.NonExistent);
                         BlockShareCommand.WriteToClient(setEntryTypeCommand, tcpClient, serverNetStat);
                     }
-                    else if (Directory.Exists(getEntryTypeCommand.Path))
+                    else if (Directory.Exists(getEntryTypePath))
                     {
                         //NetworkWrite(networkStream, new byte[] { (byte)BlockShareCommandType.Ok, (byte)FileSystemEntryType.Directory }, 0, 2);
                         SetEntryTypeCommand setEntryTypeCommand = new SetEntryTypeCommand(FileSystemEntryType.Directory);
                         BlockShareCommand.WriteToClient(setEntryTypeCommand, tcpClient, serverNetStat);
                     }
-                    else if (File.Exists(getEntryTypeCommand.Path))
+                    else if (File.Exists(getEntryTypePath))
                     {
                         //NetworkWrite(networkStream, new byte[] { (byte)BlockShareCommandType.Ok, (byte)FileSystemEntryType.File }, 0, 2);
                         SetEntryTypeCommand setEntryTypeCommand = new SetEntryTypeCommand(FileSystemEntryType.File);
@@ -596,9 +632,8 @@ namespace BlockShare.BlockSharing
                         switch (loopResult)
                         {
                             case ClientLoopResult.Continue:
-                                break;
-                            case ClientLoopResult.Disconnect:
-                                client.Close();                                
+                                continue;
+                            case ClientLoopResult.Disconnect:                                                             
                                 break;
                         }
                     }
@@ -610,6 +645,10 @@ namespace BlockShare.BlockSharing
                     Console.WriteLine(ex.StackTrace);
 #endif
                 }
+                catch(IOException)
+                {
+                    Console.WriteLine("Unexpected IO exception. Client disconnected without invoking Disconnect?");
+                }
                 catch (Exception ex)
                 {
                     OnUnhandledException?.Invoke(this, ex.Message);
@@ -620,11 +659,12 @@ namespace BlockShare.BlockSharing
 #endif
                 }
 
-                Log($"Client {client.Client.RemoteEndPoint} disconnected", 0);
+                Log($"Client disconnected", 0);
                 lock (activeClients)
                 {
                     activeClients.Remove((IPEndPoint)client.Client.RemoteEndPoint);                    
                 }
+                client.Close();
                 OnClientDisconnected?.Invoke(this, (IPEndPoint)client.Client.RemoteEndPoint);
             }
         }

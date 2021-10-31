@@ -9,7 +9,7 @@ namespace BlockShare.BlockSharing.BlockShareTypes
     public enum BlockShareCommandType : byte
     {
         // Client to Server    
-        GetEntryType,
+        GetEntryType = 0xF0,
         GetDirectoryDigest,
         GetHashList,
         GetBlockRange,
@@ -22,5 +22,6 @@ namespace BlockShare.BlockSharing.BlockShareTypes
         SetDirectoryDigest,
         SetHashlist,
         SetEntryType,
+        SetBlock
     }
 }

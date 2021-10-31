@@ -17,6 +17,13 @@ namespace BlockShare.BlockSharing.BlockShareTypes.BlockShareCommands
             CommandType = BlockShareCommandType.GetDirectoryDigest;
         }
 
+        public GetDirectoryDigestCommand(string path, int recursionLevel)
+        {
+            CommandType = BlockShareCommandType.GetDirectoryDigest;
+            Path = path;
+            RecursionLevel = recursionLevel;
+        }
+
 
         public override void WriteValuesToClient(TcpClient tcpClient, NetStat netStat)
         {
@@ -28,6 +35,11 @@ namespace BlockShare.BlockSharing.BlockShareTypes.BlockShareCommands
         {
             Path = ReadString(tcpClient, netStat, timeout);
             RecursionLevel = ReadInt(tcpClient, netStat, timeout);
+        }
+
+        public override string ToString()
+        {
+            return $"GetDirectoryDigest(Path: {Path}, RecursionLevel: {RecursionLevel})";
         }
     }
 }

@@ -39,5 +39,10 @@ namespace BlockShare.BlockSharing.BlockShareTypes.BlockShareCommands
             BlockIndex = ReadLong(tcpClient, netStat, timeout);
             BlocksCount = ReadLong(tcpClient, netStat, timeout);
         }
+
+        public override string ToString()
+        {
+            return $"GetBlockRange(Path: {Path}, Blocks: [{BlockIndex}]-[{BlockIndex + BlocksCount - 1}])";
+        }
     }
 }

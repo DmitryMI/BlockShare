@@ -16,6 +16,12 @@ namespace BlockShare.BlockSharing.BlockShareTypes.BlockShareCommands
             CommandType = BlockShareCommandType.GetEntryType;
         }
 
+        public GetEntryTypeCommand(string path)
+        {
+            CommandType = BlockShareCommandType.GetEntryType;
+            Path = path;
+        }
+
         public override void WriteValuesToClient(TcpClient tcpClient, NetStat netStat)
         {
             WriteString(Path, tcpClient, netStat);
@@ -24,6 +30,11 @@ namespace BlockShare.BlockSharing.BlockShareTypes.BlockShareCommands
         protected override void ReadValuesFromClient(TcpClient tcpClient, NetStat netStat, long timeout)
         {
             Path = ReadString(tcpClient, netStat, timeout);
+        }
+
+        public override string ToString()
+        {
+            return $"GetEntryType(Path: {Path})";
         }
     }
 }

@@ -27,5 +27,10 @@ namespace BlockShare.BlockSharing.BlockShareTypes.BlockShareCommands
             FileLength = ReadLong(tcpClient, netStat, timeout);
             HashlistSerialized = ReadBytes(tcpClient, netStat, timeout);
         }
+
+        public override string ToString()
+        {
+            return $"SetHashlist(FileLength: {FileLength}, HashlistSerialized: {Utils.PrintHex(HashlistSerialized, 0, 16)}...)";
+        }
     }
 }

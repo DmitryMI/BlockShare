@@ -30,5 +30,10 @@ namespace BlockShare.BlockSharing.BlockShareTypes.BlockShareCommands
         {
             Path = ReadString(tcpClient, netStat, timeout);
         }
+
+        public override string ToString()
+        {
+            return $"OpenFile(Path: {Path})";
+        }
     }
 }

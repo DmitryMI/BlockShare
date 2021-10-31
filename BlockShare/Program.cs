@@ -79,18 +79,18 @@ namespace BlockShare
             }
         }
 
-        static void Download(string ip, string portStr, Preferences preferences, ILogger clientLogger, string fileName)
+        static void Download(Preferences preferences, ILogger clientLogger, string fileName)
         {
             if (fileName[0] == Path.DirectorySeparatorChar || fileName[0] == Path.AltDirectorySeparatorChar)
             {
                 fileName = fileName.Remove(0, 1);
             }
 
+            //BlockShareClientOld client = new BlockShareClientOld(preferences, clientLogger);
             BlockShareClient client = new BlockShareClient(preferences, clientLogger);
-
-            int port = int.Parse(portStr);
+           
             Stopwatch sw = Stopwatch.StartNew();
-            client.DownloadFile(ip, port, fileName, new ConsoleProgressReporter("Hashing: "), new ConsoleProgressReporter("Downloading: "));
+            client.DownloadFile(fileName);
             sw.Stop();
             long millis = sw.ElapsedMilliseconds;
             if (File.Exists(fileName))
@@ -186,10 +186,11 @@ namespace BlockShare
             Console.WriteLine("Prehashing finished");
         }
 
-        static void Browser(string ip, int port, Preferences preferences, ILogger clientLogger, string fileName)
+        static void Browser(BlockShareClient client, Preferences preferences, ILogger clientLogger, string fileName)
         {
-            BlockShareClient client = new BlockShareClient(preferences, clientLogger);
-            DirectoryDigest rootDigest = client.GetDirectoryDigest(ip, port, fileName, 1);
+            //BlockShareClientOld client = new BlockShareClientOld(preferences, clientLogger);
+            //DirectoryDigest rootDigest = client.GetDirectoryDigest(ip, port, fileName, 1);
+            DirectoryDigest rootDigest = client.GetDirectoryDigest(fileName, 1);
             if (rootDigest == null)
             {
                 Console.WriteLine("Error during receiving remote file system info");
@@ -203,7 +204,8 @@ namespace BlockShare
                 if (!current.IsLoaded)
                 {
                     Console.WriteLine("Loading...");
-                    DirectoryDigest digest = client.GetDirectoryDigest(ip, port, current.RelativePath, 1 );
+                    //DirectoryDigest digest = client.GetDirectoryDigest(ip, port, current.RelativePath, 1 );
+                    DirectoryDigest digest = client.GetDirectoryDigest(current.RelativePath, 1);
                     current.LoadEntriesFrom(digest);
                 }
 
@@ -305,7 +307,7 @@ namespace BlockShare
                 switch (inputWords[0].ToUpper())
                 {
                     case "D":
-                        Download(ip, port.ToString(), preferences, clientLogger, entryName);
+                        Download(preferences, clientLogger, entryName);
                         Console.WriteLine("Press any key to return to Browser mode...");
                         Console.ReadKey();
                         break;
@@ -470,6 +472,8 @@ namespace BlockShare
             Preferences preferences = new Preferences();
             preferences.ServerStoragePath = storagePath;
             preferences.ClientStoragePath = storagePath;
+            preferences.ServerIp = ip;
+            preferences.ServerPort = int.Parse(portStr);
             ConsoleLogger serverLogger = new ConsoleLogger("[SERVER]");
             ConsoleLogger clientLogger = new ConsoleLogger("[CLIENT]");
 
@@ -484,16 +488,15 @@ namespace BlockShare
             
             if(mode == "client")
             {
-                Download(ip, portStr, preferences, clientLogger, fileName);
+                Download(preferences, clientLogger, fileName);
             }
 
             if (mode == "browser")
             {
+                //BlockShareClientOld client = new BlockShareClientOld(preferences, clientLogger);
                 BlockShareClient client = new BlockShareClient(preferences, clientLogger);
 
-                int port = int.Parse(portStr);
-                //RemoteFileSystemViewer remoteViewer = client.Browse(ip, port, fileName);
-                Browser(ip, port, preferences, clientLogger, fileName);
+                Browser(client, preferences, clientLogger, fileName);
             }
 
             if (mode == "gui")
