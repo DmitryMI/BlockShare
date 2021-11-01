@@ -79,7 +79,6 @@
   </ItemGroup>
   <ItemGroup>
     <Compile Include="BlockSharing\BlockShareClient.cs" />
-    <Compile Include="BlockSharing\BlockShareClientOld.cs" />
     <Compile Include="BlockSharing\BlockShareServer.cs" />
     <Compile Include="BlockSharing\BlockShareTypes\BlockShareCommands\InvalidOperationCommand.cs" />
     <Compile Include="BlockSharing\BlockShareTypes\BlockShareCommands\OkCommand.cs" />
@@ -96,7 +95,6 @@
     <Compile Include="BlockSharing\BlockShareTypes\BlockShareCommandType.cs" />
     <Compile Include="BlockSharing\BlockShareTypes\BlockShareCommand.cs" />
     <Compile Include="BlockSharing\BlockShareTypes\ClientLoopResult.cs" />
-    <Compile Include="BlockSharing\BlockShareTypes\Command.cs" />
     <Compile Include="BlockSharing\DirectoryDigesting\DirectoryDigest.cs" />
     <Compile Include="BlockSharing\DirectoryDigesting\FileDigest.cs" />
     <Compile Include="BlockSharing\FileHashBlock.cs" />
@@ -110,13 +108,8 @@
     <Compile Include="BlockSharing\HashMapping\HashMapper.cs" />
     <Compile Include="BlockSharing\HashMapping\ShaHashMapper.cs" />
     <Compile Include="BlockSharing\BlockShareTypes\ILogger.cs" />
-    <Compile Include="BlockSharing\BlockShareTypes\IProgressReporter.cs" />
     <Compile Include="BlockSharing\BlockShareTypes\NetStat.cs" />
     <Compile Include="BlockSharing\Preferences.cs" />
-    <Compile Include="BlockSharing\RemoteFileSystem\RemoteDirectoryInfo.cs" />
-    <Compile Include="BlockSharing\RemoteFileSystem\RemoteFileInfo.cs" />
-    <Compile Include="BlockSharing\RemoteFileSystem\RemoteFileSystemEntryInfo.cs" />
-    <Compile Include="BlockSharing\RemoteFileSystem\RemoteFileSystemViewer.cs" />
     <Compile Include="BlockSharing\Utils.cs" />
     <Compile Include="Program.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />

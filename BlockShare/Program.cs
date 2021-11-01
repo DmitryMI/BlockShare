@@ -7,7 +7,6 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 using BlockShare.BlockSharing.HashMapping;
-using BlockShare.BlockSharing.RemoteFileSystem;
 using BlockShare.BlockSharing.DirectoryDigesting;
 using System.Windows.Forms;
 using System.Runtime.InteropServices;
