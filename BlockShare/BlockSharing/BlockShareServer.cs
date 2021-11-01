@@ -24,10 +24,12 @@ namespace BlockShare.BlockSharing
 
         private Task worker;
 
+        private bool isServerRunning;
+
         private NetStat serverNetStat = new NetStat();
         public NetStat GetServerNetStat() => serverNetStat.CloneNetStat();
 
-        private List<IPEndPoint> activeClients = new List<IPEndPoint>();
+        private List<TcpClient> activeClients = new List<TcpClient>();
 
         #region Events
         public event Action<BlockShareServer, IPEndPoint> OnClientConnected;
@@ -38,14 +40,6 @@ namespace BlockShare.BlockSharing
         public event Action<BlockShareServer, string, double> OnHashingProgressChanged;
         public event Action<BlockShareServer, string> OnHashingFinished;
         #endregion
-
-        public IPEndPoint[] GetActiveClients()
-        {
-            lock(activeClients)
-            {
-                return activeClients.ToArray();
-            }
-        }
 
         private void Log(string message, int withVerbosity)
         {
@@ -81,6 +75,8 @@ namespace BlockShare.BlockSharing
 
         public void StartServer()
         {
+            isServerRunning = true;
+
             Log($"Starting server on {localEndpoint}...", 0);
             tcpListener = new TcpListener(localEndpoint);
             tcpListener.Start();
@@ -94,6 +90,13 @@ namespace BlockShare.BlockSharing
         public void StopServer()
         {
             tcpListener.Stop();
+            isServerRunning = false;
+
+            foreach(var client in activeClients)
+            {
+                client.Close();
+            }
+
             worker.Wait();
 
             Log($"Server is stopped", 0);
@@ -116,7 +119,7 @@ namespace BlockShare.BlockSharing
         {
             try
             {
-                while (true)
+                while (isServerRunning)
                 {
                     Log("TcpListener is waiting for next client...", 0);
                     TcpClient client = tcpListener.AcceptTcpClient();
@@ -627,16 +630,17 @@ namespace BlockShare.BlockSharing
         }
 
         private void ClientAcceptedMethod(object clientObj)
-        {
+        {            
             TcpClient client = (TcpClient) clientObj;
+            IPEndPoint clientEndPoint = (IPEndPoint)client.Client.RemoteEndPoint;
             using (client)
             {
-                Log($"Client accepted from {client.Client.RemoteEndPoint}", 0);
+                Log($"Client accepted from {clientEndPoint}", 0);
                 lock(activeClients)
                 {
-                    activeClients.Add((IPEndPoint)client.Client.RemoteEndPoint);                    
+                    activeClients.Add(client);                    
                 }
-                OnClientConnected?.Invoke(this, (IPEndPoint)client.Client.RemoteEndPoint);
+                OnClientConnected?.Invoke(this, clientEndPoint);
                 try
                 {
                     while (client.Connected)
@@ -676,10 +680,10 @@ namespace BlockShare.BlockSharing
                 Log($"Client disconnected", 0);
                 lock (activeClients)
                 {
-                    activeClients.Remove((IPEndPoint)client.Client.RemoteEndPoint);                    
-                }
+                    activeClients.Remove(client);                    
+                }                
+                OnClientDisconnected?.Invoke(this, clientEndPoint);
                 client.Close();
-                OnClientDisconnected?.Invoke(this, (IPEndPoint)client.Client.RemoteEndPoint);
             }
         }
     }

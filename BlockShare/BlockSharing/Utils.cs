@@ -19,15 +19,26 @@ namespace BlockShare.BlockSharing
 
         }
 
-        public static void EnsurePathExists(DirectoryInfo rootDirInfo, FileInfo fileInfo)
+        public static void EnsurePathExists(DirectoryInfo rootDirInfo, FileInfo fileInfo, Preferences preferences)
         {
             Stack<DirectoryInfo> pathStack = new Stack<DirectoryInfo>();
             DirectoryInfo parent = fileInfo.Directory;
 
-            while (parent != null && !Utils.ArePathsEqual(parent.FullName, rootDirInfo.FullName))
+            if (!preferences.CreateMissingStorageDirectories)
             {
-                pathStack.Push(parent);
-                parent = parent.Parent;
+                while (parent != null && !Utils.ArePathsEqual(parent.FullName, rootDirInfo.FullName))
+                {
+                    pathStack.Push(parent);
+                    parent = parent.Parent;
+                }
+            }
+            else
+            {
+                while (parent != null)
+                {
+                    pathStack.Push(parent);
+                    parent = parent.Parent;
+                }
             }
 
             while (pathStack.Count > 0)
@@ -291,7 +302,7 @@ namespace BlockShare.BlockSharing
         {
             if (bytesPerSecond < 1024)
             {
-                return $"{bytesPerSecond} B/s";
+                return $"{bytesPerSecond:F2} B/s";
             }
 
             if (bytesPerSecond < 1024 * 1024)

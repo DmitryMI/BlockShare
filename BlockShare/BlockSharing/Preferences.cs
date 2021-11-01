@@ -20,7 +20,9 @@ namespace BlockShare.BlockSharing
         public string ServerStoragePath { get; set; } = "";
         public string ClientStoragePath { get; set; } = "";
 
-        public bool ClientBlockVerificationEnabled { get; set; } = true;
+        public bool CreateMissingStorageDirectories { get; set; } = true;
+
+        public bool ClientBlockVerificationEnabled { get; set; } = false;
 
         public int Verbosity { get; set; } = 3;
 
@@ -30,5 +32,6 @@ namespace BlockShare.BlockSharing
         public static string HashpartExtension { get; set; } = ".hashpart";
 
         public HashMapper HashMapper { get; set; } = new ExtensionHashMapper();
+        
     }
 }

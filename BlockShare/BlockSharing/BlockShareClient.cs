@@ -115,7 +115,7 @@ namespace BlockShare.BlockSharing
             FileInfo localFileInfo = new FileInfo(localFilePath);
             DirectoryInfo rootDirectoryInfo = new DirectoryInfo(preferences.ClientStoragePath);
 
-            Utils.EnsurePathExists(rootDirectoryInfo, localFileInfo);
+            Utils.EnsurePathExists(rootDirectoryInfo, localFileInfo, preferences);
 
             if (!File.Exists(localFileInfo.FullName))
             {
