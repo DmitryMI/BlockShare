@@ -80,6 +80,7 @@
   <ItemGroup>
     <Compile Include="BlockSharing\BlockShareClient.cs" />
     <Compile Include="BlockSharing\BlockShareServer.cs" />
+    <Compile Include="BlockSharing\BlockShareTypes\BlockShareCommands\GetFileInfoCommand.cs" />
     <Compile Include="BlockSharing\BlockShareTypes\BlockShareCommands\InvalidOperationCommand.cs" />
     <Compile Include="BlockSharing\BlockShareTypes\BlockShareCommands\OkCommand.cs" />
     <Compile Include="BlockSharing\BlockShareTypes\BlockShareCommands\DisconnectCommand.cs" />
@@ -91,10 +92,13 @@
     <Compile Include="BlockSharing\BlockShareTypes\BlockShareCommands\SetBlockCommand.cs" />
     <Compile Include="BlockSharing\BlockShareTypes\BlockShareCommands\SetDirectoryDigestCommand.cs" />
     <Compile Include="BlockSharing\BlockShareTypes\BlockShareCommands\SetEntryTypeCommand.cs" />
+    <Compile Include="BlockSharing\BlockShareTypes\BlockShareCommands\SetFileInfoCommand.cs" />
     <Compile Include="BlockSharing\BlockShareTypes\BlockShareCommands\SetHashlistCommand.cs" />
     <Compile Include="BlockSharing\BlockShareTypes\BlockShareCommandType.cs" />
     <Compile Include="BlockSharing\BlockShareTypes\BlockShareCommand.cs" />
     <Compile Include="BlockSharing\BlockShareTypes\ClientLoopResult.cs" />
+    <Compile Include="BlockSharing\BlockShareTypes\DownloadingProgressEventData.cs" />
+    <Compile Include="BlockSharing\BlockShareTypes\IPreferencesSerializable.cs" />
     <Compile Include="BlockSharing\DirectoryDigesting\DirectoryDigest.cs" />
     <Compile Include="BlockSharing\DirectoryDigesting\FileDigest.cs" />
     <Compile Include="BlockSharing\FileHashBlock.cs" />
@@ -109,7 +113,8 @@
     <Compile Include="BlockSharing\HashMapping\ShaHashMapper.cs" />
     <Compile Include="BlockSharing\BlockShareTypes\ILogger.cs" />
     <Compile Include="BlockSharing\BlockShareTypes\NetStat.cs" />
-    <Compile Include="BlockSharing\Preferences.cs" />
+    <Compile Include="BlockSharing\PreferencesManagement\Preferences.cs" />
+    <Compile Include="BlockSharing\PreferencesManagement\PreferencesManager.cs" />
     <Compile Include="BlockSharing\Utils.cs" />
     <Compile Include="Program.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />

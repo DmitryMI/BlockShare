@@ -11,13 +11,14 @@ namespace BlockShare.BlockSharing.BlockShareTypes.BlockShareCommands
     {
         public string Path { get; set; }
 
+        public override BlockShareCommandType CommandType => BlockShareCommandType.OpenFile;
+
         public OpenFileCommand()
         {
-            CommandType = BlockShareCommandType.OpenFile;
         }
+
         public OpenFileCommand(string path)
         {
-            CommandType = BlockShareCommandType.OpenFile;
             Path = path;
         }
 

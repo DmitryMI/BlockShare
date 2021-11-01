@@ -7,18 +7,19 @@ using System.Threading.Tasks;
 
 namespace BlockShare.BlockSharing.BlockShareTypes.BlockShareCommands
 {
-    public class GetEntryTypeCommand : BlockShareCommand
+    public class GetFileInfoCommand : BlockShareCommand
     {
-        public string Path { get; private set; }
+        public string Path { get; set; }
 
-        public override BlockShareCommandType CommandType => BlockShareCommandType.GetEntryType;
+        public override BlockShareCommandType CommandType => BlockShareCommandType.GetFileInfo;
 
-        public GetEntryTypeCommand()
+        public GetFileInfoCommand()
         {
+            
         }
 
-        public GetEntryTypeCommand(string path)
-        {
+        public GetFileInfoCommand(string path)
+        {            
             Path = path;
         }
 
@@ -34,7 +35,7 @@ namespace BlockShare.BlockSharing.BlockShareTypes.BlockShareCommands
 
         public override string ToString()
         {
-            return $"GetEntryType(Path: {Path})";
+            return $"GetFileInfo(Path: {Path})";
         }
     }
 }

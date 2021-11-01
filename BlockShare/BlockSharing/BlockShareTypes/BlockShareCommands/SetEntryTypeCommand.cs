@@ -11,15 +11,15 @@ namespace BlockShare.BlockSharing.BlockShareTypes.BlockShareCommands
     {
         public FileSystemEntryType EntryType { get; set; }
 
+        public override BlockShareCommandType CommandType => BlockShareCommandType.SetEntryType;
+
         public SetEntryTypeCommand(FileSystemEntryType entryType)
         {
-            CommandType = BlockShareCommandType.SetEntryType;
             EntryType = entryType;
         }
 
         public SetEntryTypeCommand()
         {
-            CommandType = BlockShareCommandType.SetEntryType;
         }
 
         protected static FileSystemEntryType ReadEntryType(TcpClient tcpClient, NetStat netStat, long timeout)

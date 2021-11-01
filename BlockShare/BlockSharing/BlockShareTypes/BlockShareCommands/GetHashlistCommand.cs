@@ -11,14 +11,15 @@ namespace BlockShare.BlockSharing.BlockShareTypes.BlockShareCommands
     {
         public string Path { get; private set; }
 
+        public override BlockShareCommandType CommandType => BlockShareCommandType.GetHashList;
+
         public GetHashlistCommand()
         {
-            CommandType = BlockShareCommandType.GetHashList;
+
         }
 
         public GetHashlistCommand(string path)
         {
-            CommandType = BlockShareCommandType.GetHashList;
             Path = path;
         }
 

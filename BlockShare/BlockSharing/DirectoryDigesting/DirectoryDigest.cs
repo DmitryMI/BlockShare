@@ -1,4 +1,5 @@
-﻿using System;
+﻿using BlockShare.BlockSharing.PreferencesManagement;
+using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.IO;
@@ -8,7 +9,7 @@ using System.Threading.Tasks;
 using System.Xml;
 
 namespace BlockShare.BlockSharing.DirectoryDigesting
-{ 
+{
     public class DirectoryDigest
     {
         private DirectoryInfo directoryInfo;

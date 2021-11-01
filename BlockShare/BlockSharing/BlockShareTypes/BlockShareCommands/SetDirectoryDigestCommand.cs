@@ -11,9 +11,11 @@ namespace BlockShare.BlockSharing.BlockShareTypes.BlockShareCommands
     {
         public string XmlPayload { get; set; }
 
+        public override BlockShareCommandType CommandType => BlockShareCommandType.SetDirectoryDigest;
+
         public SetDirectoryDigestCommand()
         {
-            CommandType = BlockShareCommandType.SetDirectoryDigest;
+
         }
 
         public override void WriteValuesToClient(TcpClient tcpClient, NetStat netStat)

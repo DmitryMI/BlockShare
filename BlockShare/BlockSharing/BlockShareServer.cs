@@ -9,6 +9,7 @@ using System.Threading.Tasks;
 using BlockShare.BlockSharing.BlockShareTypes;
 using BlockShare.BlockSharing.BlockShareTypes.BlockShareCommands;
 using BlockShare.BlockSharing.DirectoryDigesting;
+using BlockShare.BlockSharing.PreferencesManagement;
 
 namespace BlockShare.BlockSharing
 {
@@ -454,6 +455,34 @@ namespace BlockShare.BlockSharing
                         SetEntryTypeCommand setEntryTypeCommand = new SetEntryTypeCommand(FileSystemEntryType.NonExistent);
                         BlockShareCommand.WriteToClient(setEntryTypeCommand, tcpClient, serverNetStat);
                     }
+                    return ClientLoopResult.Continue;
+
+                case BlockShareCommandType.GetFileInfo:
+                    GetFileInfoCommand getFileInfoCommand = (GetFileInfoCommand)command;
+                    string path = GetPath(getFileInfoCommand.Path);
+                    bool invalidRequest = false;
+                    if(!CheckRequestValidity(path))
+                    {                        
+                        invalidRequest = true;
+                    }
+                    else if(!File.Exists(path))
+                    {
+                        invalidRequest = true;
+                    }
+                    if(invalidRequest)
+                    {
+                        InvalidOperationCommand invalidOperationCommand = new InvalidOperationCommand();
+                        BlockShareCommand.WriteToClient(invalidOperationCommand, tcpClient, serverNetStat);
+                        return ClientLoopResult.Continue;
+                    }
+
+                    SetFileInfoCommand setFileInfoCommand = new SetFileInfoCommand();
+
+                    FileInfo fileInfo = new FileInfo(path);
+                    setFileInfoCommand.FileLength = fileInfo.Length;
+
+                    BlockShareCommand.WriteToClient(setFileInfoCommand, tcpClient, serverNetStat);
+
                     return ClientLoopResult.Continue;
             }
 

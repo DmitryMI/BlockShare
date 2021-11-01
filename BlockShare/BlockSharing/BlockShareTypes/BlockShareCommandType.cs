@@ -9,12 +9,13 @@ namespace BlockShare.BlockSharing.BlockShareTypes
     public enum BlockShareCommandType : byte
     {
         // Client to Server    
-        GetEntryType = 0xF0,
+        GetEntryType = 0xA0,
         GetDirectoryDigest,
         GetHashList,
         GetBlockRange,
         Disconnect,
         OpenFile,
+        GetFileInfo,
 
         // Server to Client
         Ok,
@@ -22,6 +23,7 @@ namespace BlockShare.BlockSharing.BlockShareTypes
         SetDirectoryDigest,
         SetHashlist,
         SetEntryType,
-        SetBlock
+        SetBlock,
+        SetFileInfo,
     }
 }

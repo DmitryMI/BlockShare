@@ -1,6 +1,7 @@
 ﻿using BlockShare.BlockSharing.BlockShareTypes;
 using BlockShare.BlockSharing.BlockShareTypes.BlockShareCommands;
 using BlockShare.BlockSharing.DirectoryDigesting;
+using BlockShare.BlockSharing.PreferencesManagement;
 using System;
 using System.Collections.Generic;
 using System.IO;
@@ -27,7 +28,7 @@ namespace BlockShare.BlockSharing
         #region Events
         public event Action<BlockShareClient, string, double> OnHashingProgressChanged;
         public event Action<BlockShareClient, string> OnHashingFinished;
-        public event Action<BlockShareClient, string, FileHashList, FileHashList, int> OnBlockDownloaded;
+        public event Action<BlockShareClient, DownloadingProgressEventData> OnBlockDownloaded;
         public event Action<BlockShareClient, string> OnDownloadingFinished;
         #endregion
 
@@ -43,6 +44,8 @@ namespace BlockShare.BlockSharing
         {
             this.preferences = preferences;
             Logger = logger;
+
+            Log($"Connecting to server {preferences.ServerIp} {preferences.ServerPort}...", 0);
 
             tcpClient = new TcpClient();
             tcpClient.Connect(preferences.ServerIp, preferences.ServerPort);
@@ -102,7 +105,83 @@ namespace BlockShare.BlockSharing
             OnHashingFinished?.Invoke(this, fileName);
         }
 
-        private void DownloadFileInternal(string fileName, int index)
+        private void DownloadFileNoHashlist(string fileName, int index)
+        {
+            string localFilePath = Path.Combine(preferences.ClientStoragePath, fileName);
+
+            FileInfo localFileInfo = new FileInfo(localFilePath);
+            DirectoryInfo rootDirectoryInfo = new DirectoryInfo(preferences.ClientStoragePath);
+
+            Utils.EnsurePathExists(rootDirectoryInfo, localFileInfo, preferences);
+
+            if (!File.Exists(localFileInfo.FullName))
+            {
+                File.Create(localFileInfo.FullName).Close();
+            }
+
+            using (FileStream localFileStream = new FileStream(localFileInfo.FullName, FileMode.OpenOrCreate, FileAccess.ReadWrite))
+            {
+                //GetHashlistCommand getHashlistCommand = new GetHashlistCommand(fileName);
+                //BlockShareCommand.WriteToClient(getHashlistCommand, tcpClient, clientNetStat);
+                GetFileInfoCommand getFileInfoCommand = new GetFileInfoCommand(fileName);
+                BlockShareCommand.WriteToClient(getFileInfoCommand, tcpClient, clientNetStat);
+
+                //SetHashlistCommand setHashlistCommand = BlockShareCommand.ReadFromClient<SetHashlistCommand>(tcpClient, clientNetStat, 0);
+                //FileHashList remoteHashList = FileHashList.Deserialise(setHashlistCommand.HashlistSerialized, null, preferences);
+                //Log($"Hashlist blocks count: {remoteHashList.BlocksCount}", 2);
+                SetFileInfoCommand setFileInfoCommand = BlockShareCommand.ReadFromClient<SetFileInfoCommand>(tcpClient, clientNetStat, 1000);
+
+                long fileLength = setFileInfoCommand.FileLength;
+                long blocksCount = fileLength / preferences.BlockSize;
+                if (fileLength % preferences.BlockSize != 0)
+                {
+                    blocksCount++;
+                }
+
+                byte[] blockBytes = new byte[preferences.BlockSize];
+
+                long downloadStartIndex = (localFileStream.Length / preferences.BlockSize);
+                long blocksLeft = blocksCount - downloadStartIndex;
+
+                GetBlockRangeCommand getBlockRangeCommand = new GetBlockRangeCommand(fileName, downloadStartIndex, blocksLeft);
+                BlockShareCommand.WriteToClient(getBlockRangeCommand, tcpClient, clientNetStat);
+
+                for (long j = downloadStartIndex; j < downloadStartIndex + blocksLeft; j++)
+                {
+                    long filePos = j * preferences.BlockSize;
+                    long bytesLeft = fileLength - filePos;
+                    int blockSize;
+                    if (bytesLeft > preferences.BlockSize)
+                    {
+                        blockSize = (int)preferences.BlockSize;
+                    }
+                    else
+                    {
+                        blockSize = (int)bytesLeft;
+                    }
+
+                    NetworkRead(tcpClient, blockBytes, 0, blockSize, 0);
+                    clientNetStat.Payload += (ulong)blockSize;
+
+                    localFileStream.Seek(filePos, SeekOrigin.Begin);
+                    localFileStream.Write(blockBytes, 0, blockSize);
+
+                    DownloadingProgressEventData eventData = new DownloadingProgressEventData()
+                    {
+                        FileName = fileName,
+                        RemoteHashList = null,
+                        LocalHashList = null,
+                        BlocksCount = (int)blocksCount,
+                        DownloadedBlockIndex = (int)j
+                    };
+                    OnBlockDownloaded?.Invoke(this, eventData);
+                }
+            }
+
+            Log($"Downloading finished", 0);
+        }
+
+        private void DownloadFileWithHashlist(string fileName, int index)
         {
             string localFilePath = Path.Combine(preferences.ClientStoragePath, fileName);
             string localFileHashlistPath = preferences.HashMapper.GetHashpartFile(localFilePath);
@@ -226,7 +305,15 @@ namespace BlockShare.BlockSharing
                         {
                             localFileStream.Seek(filePos, SeekOrigin.Begin);
                             localFileStream.Write(blockBytes, 0, blockSize);
-                            OnBlockDownloaded?.Invoke(this, fileName, remoteHashList, localHashList, j);
+                            DownloadingProgressEventData eventData = new DownloadingProgressEventData()
+                            {
+                                FileName = fileName,
+                                RemoteHashList = remoteHashList,
+                                LocalHashList = localHashList,
+                                BlocksCount = remoteHashList.BlocksCount,
+                                DownloadedBlockIndex = j
+                            };
+                            OnBlockDownloaded?.Invoke(this, eventData);
                             //downloadProgress?.ReportProgress(this, (double)j / remoteHashList.BlocksCount, jobId);
                         }
                     }
@@ -234,6 +321,18 @@ namespace BlockShare.BlockSharing
             }
 
             Log($"Downloading finished", 0);
+        }
+
+        private void DownloadFileInternal(string fileName, int index)
+        {
+            if(preferences.UseHashLists)
+            {
+                DownloadFileWithHashlist(fileName, index);
+            }
+            else
+            {
+                DownloadFileNoHashlist(fileName, index);
+            }
         }
 
         public void DownloadFile(string entryName)

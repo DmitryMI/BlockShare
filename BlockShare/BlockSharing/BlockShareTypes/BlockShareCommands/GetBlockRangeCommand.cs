@@ -13,14 +13,14 @@ namespace BlockShare.BlockSharing.BlockShareTypes.BlockShareCommands
         public long BlockIndex { get; set; }
         public long BlocksCount { get; set; }
 
+        public override BlockShareCommandType CommandType => BlockShareCommandType.GetBlockRange;
+
         public GetBlockRangeCommand()
         {
-            CommandType = BlockShareCommandType.GetBlockRange;
         }
 
         public GetBlockRangeCommand(string path, long blockIndex, long blocksCount)
         {
-            CommandType = BlockShareCommandType.GetBlockRange;
             Path = path;
             BlockIndex = blockIndex;
             BlocksCount = blocksCount;

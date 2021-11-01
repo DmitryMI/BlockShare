@@ -9,10 +9,11 @@ namespace BlockShare.BlockSharing.BlockShareTypes.BlockShareCommands
 {
     public class OkCommand : BlockShareCommand
     {
+        public override BlockShareCommandType CommandType => BlockShareCommandType.Ok;
 
         public OkCommand()
         {
-            CommandType = BlockShareCommandType.Ok;
+
         }
 
         public override void WriteValuesToClient(TcpClient tcpClient, NetStat netStat)

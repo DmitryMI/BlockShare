@@ -12,6 +12,7 @@ using System.Windows.Forms;
 using System.Runtime.InteropServices;
 using BlockShare.BlockSharing.Gui;
 using BlockShare.BlockSharing.BlockShareTypes;
+using BlockShare.BlockSharing.PreferencesManagement;
 
 namespace BlockShare
 {
@@ -48,23 +49,32 @@ namespace BlockShare
                 }                
             }
 
-            public void OnBlockDownloaded(string file, FileHashList remoteHashList, FileHashList localHashList, int block)
+            public void OnBlockDownloaded(DownloadingProgressEventData eventData)
             {
                 double previousProgress = 0;
-                double progress = (double)localHashList.BlocksCount / remoteHashList.BlocksCount;
-                if (!downloadingProgressTable.ContainsKey(file))
+                double progress;
+                if (eventData.RemoteHashList == null || eventData.LocalHashList == null)
                 {
-                    downloadingProgressTable.Add(file, progress);                    
+                    progress = (double)eventData.DownloadedBlockIndex / eventData.BlocksCount;
                 }
                 else
                 {
-                    previousProgress = downloadingProgressTable[file];
+                    progress = (double)eventData.LocalHashList.BlocksCount / eventData.RemoteHashList.BlocksCount;
+                }
+
+                if (!downloadingProgressTable.ContainsKey(eventData.FileName))
+                {
+                    downloadingProgressTable.Add(eventData.FileName, progress);                    
+                }
+                else
+                {
+                    previousProgress = downloadingProgressTable[eventData.FileName];
                 }
 
                 if (progress - previousProgress >= 0.01f)
                 {
-                    Console.WriteLine(Prefix + $" Downloading {file}: {progress * 100.0:F1}%");
-                    downloadingProgressTable[file] = progress;
+                    Console.WriteLine(Prefix + $" Downloading {eventData.FileName}: {progress * 100.0:F1}%");
+                    downloadingProgressTable[eventData.FileName] = progress;
                 }                
             }
 
@@ -377,6 +387,17 @@ namespace BlockShare
 
         static void Main(string[] args)
         {
+            Preferences preferences = new Preferences();
+
+            if(File.Exists("BlockShare.config"))
+            {
+                preferences = PreferencesManager.LoadPreferences("BlockShare.config");
+            }
+            else
+            {
+                PreferencesManager.SavePreferences(preferences, "BlockShare.config");
+            }
+
             if (args.Length == 0)
             {
                 Console.WriteLine("[1] BlockSharing.exe dehash <path>");
@@ -469,16 +490,18 @@ namespace BlockShare
                 Console.WriteLine($"Unknown mode: {mode}");
                 return;
             }
-
-            Preferences preferences = new Preferences();
+            
+            
             preferences.ServerStoragePath = storagePath;
             preferences.ClientStoragePath = storagePath;
             preferences.ServerIp = ip;
             preferences.ServerPort = int.Parse(portStr);
-            ConsoleLogger serverLogger = new ConsoleLogger("[SERVER]");
-            ConsoleLogger clientLogger = new ConsoleLogger("[CLIENT]");
+            preferences.HashMapper = hashMapper;            
 
-            preferences.HashMapper = hashMapper;
+            PreferencesManager.SavePreferences(preferences, "BlockShare.config");
+
+            ConsoleLogger serverLogger = new ConsoleLogger("[SERVER]");
+            ConsoleLogger clientLogger = new ConsoleLogger("[CLIENT]");            
 
             if (mode == "server")
             {
@@ -495,7 +518,7 @@ namespace BlockShare
                 BlockShareClient client = new BlockShareClient(preferences, clientLogger);
                 client.OnHashingProgressChanged += (clientRef, fileNameRef, progress) => clientLogger.OnHashingProgressChanged(fileNameRef, progress);
                 client.OnHashingFinished += (clientRef, fileNameRef) => clientLogger.OnHashingFinished(fileNameRef);
-                client.OnBlockDownloaded += (clientRef, fileNameRef, remote, local, block) => clientLogger.OnBlockDownloaded(fileNameRef, remote, local, block);
+                client.OnBlockDownloaded += (clientRef, eventData) => clientLogger.OnBlockDownloaded(eventData);
                 client.OnDownloadingFinished += (clientRef, fileNameRef ) => clientLogger.OnDownloadingFinished(fileNameRef);
                 Download(client, preferences, clientLogger, fileName);
             }
@@ -506,7 +529,7 @@ namespace BlockShare
                 BlockShareClient client = new BlockShareClient(preferences, clientLogger);
                 client.OnHashingProgressChanged += (clientRef, fileNameRef, progress) => clientLogger.OnHashingProgressChanged(fileNameRef, progress);
                 client.OnHashingFinished += (clientRef, fileNameRef) => clientLogger.OnHashingFinished(fileNameRef);
-                client.OnBlockDownloaded += (clientRef, fileNameRef, remote, local, block) => clientLogger.OnBlockDownloaded(fileNameRef, remote, local, block);
+                client.OnBlockDownloaded += (clientRef, eventData) => clientLogger.OnBlockDownloaded(eventData);
                 client.OnDownloadingFinished += (clientRef, fileNameRef) => clientLogger.OnDownloadingFinished(fileNameRef);
 
                 Browser(client, preferences, clientLogger, fileName);

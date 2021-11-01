@@ -1,4 +1,5 @@
 ﻿using BlockShare.BlockSharing.BlockShareTypes;
+using BlockShare.BlockSharing.PreferencesManagement;
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
@@ -9,7 +10,7 @@ using System.Threading.Tasks;
 using System.Windows.Forms;
 
 namespace BlockShare.BlockSharing.Gui
-{  
+{
 
     public class ServerForm : Form
     {

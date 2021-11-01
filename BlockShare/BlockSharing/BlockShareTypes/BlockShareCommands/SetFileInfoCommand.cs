@@ -7,34 +7,25 @@ using System.Threading.Tasks;
 
 namespace BlockShare.BlockSharing.BlockShareTypes.BlockShareCommands
 {
-    public class GetEntryTypeCommand : BlockShareCommand
+    public class SetFileInfoCommand : BlockShareCommand
     {
-        public string Path { get; private set; }
+        public long FileLength { get; set; }
 
-        public override BlockShareCommandType CommandType => BlockShareCommandType.GetEntryType;
-
-        public GetEntryTypeCommand()
-        {
-        }
-
-        public GetEntryTypeCommand(string path)
-        {
-            Path = path;
-        }
+        public override BlockShareCommandType CommandType => BlockShareCommandType.SetFileInfo;
 
         public override void WriteValuesToClient(TcpClient tcpClient, NetStat netStat)
         {
-            WriteString(Path, tcpClient, netStat);
+            WriteLong(FileLength, tcpClient, netStat);
         }
 
         protected override void ReadValuesFromClient(TcpClient tcpClient, NetStat netStat, long timeout)
         {
-            Path = ReadString(tcpClient, netStat, timeout);
+            FileLength = ReadLong(tcpClient, netStat, timeout);
         }
 
         public override string ToString()
         {
-            return $"GetEntryType(Path: {Path})";
+            return $"SetFileInfo(FileLength: {FileLength})";
         }
     }
 }

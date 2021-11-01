@@ -9,10 +9,13 @@ namespace BlockShare.BlockSharing.BlockShareTypes.BlockShareCommands
 {
     public class DisconnectCommand : BlockShareCommand
     {
+        public override BlockShareCommandType CommandType => BlockShareCommandType.Disconnect;
+
         public DisconnectCommand()
         {
-            CommandType = BlockShareCommandType.Disconnect;
+
         }
+
         public override void WriteValuesToClient(TcpClient tcpClient, NetStat netStat)
         {
             

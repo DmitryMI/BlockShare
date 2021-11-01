@@ -12,9 +12,11 @@ namespace BlockShare.BlockSharing.BlockShareTypes.BlockShareCommands
         public long FileLength { get; set; }
         public byte[] HashlistSerialized { get; set; }
 
+        public override BlockShareCommandType CommandType => BlockShareCommandType.SetHashlist;
+
         public SetHashlistCommand()
         {
-            CommandType = BlockShareCommandType.SetHashlist;
+
         }
         public override void WriteValuesToClient(TcpClient tcpClient, NetStat netStat)
         {

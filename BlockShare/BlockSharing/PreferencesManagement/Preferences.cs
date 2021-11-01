@@ -5,17 +5,17 @@ using System.Text;
 using System.Threading.Tasks;
 using BlockShare.BlockSharing.HashMapping;
 
-namespace BlockShare.BlockSharing
+namespace BlockShare.BlockSharing.PreferencesManagement
 {
     public class Preferences
     {
-        public const int HashSize = 32;
+        public int HashSize { get; set; } = 32;
 
         public int GetHashSize() => HashSize;
         public long BlockSize { get; set; } = 16 * 1024 * 1024;
 
         public string ServerIp { get; set; } = "127.0.0.1";
-        public int ServerPort { get; set; } = 9652;        
+        public int ServerPort { get; set; } = 9652;
 
         public string ServerStoragePath { get; set; } = "";
         public string ClientStoragePath { get; set; } = "";
@@ -23,6 +23,8 @@ namespace BlockShare.BlockSharing
         public bool CreateMissingStorageDirectories { get; set; } = true;
 
         public bool ClientBlockVerificationEnabled { get; set; } = false;
+
+        public bool UseHashLists { get; set; } = false;
 
 #if DEBUG
         public int Verbosity { get; set; } = 3;
@@ -36,6 +38,6 @@ namespace BlockShare.BlockSharing
         public static string HashpartExtension { get; set; } = ".hashpart";
 
         public HashMapper HashMapper { get; set; } = new ExtensionHashMapper();
-        
+
     }
 }

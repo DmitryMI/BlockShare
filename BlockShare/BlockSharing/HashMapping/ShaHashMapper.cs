@@ -1,10 +1,12 @@
-﻿using System;
+﻿using BlockShare.BlockSharing.PreferencesManagement;
+using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Security.Cryptography;
 using System.Text;
 using System.Threading.Tasks;
+using System.Xml;
 
 namespace BlockShare.BlockSharing.HashMapping
 {
@@ -12,8 +14,13 @@ namespace BlockShare.BlockSharing.HashMapping
     {
         private SHA256 sha = SHA256.Create();
 
-        public string HashpartStoragePath { get; }
-        public string HashlistStoragePath { get; }
+        public string HashpartStoragePath { get; private set; }
+        public string HashlistStoragePath { get; private set; }
+
+        public ShaHashMapper()
+        {
+
+        }
 
         public ShaHashMapper(string hashpartStoragePath, string hashlistStoragePath)
         {
@@ -48,6 +55,31 @@ namespace BlockShare.BlockSharing.HashMapping
 
             string fileHashPartPath = Path.Combine(HashlistStoragePath, base64 + Preferences.HashlistExtension);
             return fileHashPartPath;
+        }
+
+        public override void ToXmlElement(XmlDocument doc, XmlElement xmlElement)
+        {
+            base.ToXmlElement(doc, xmlElement);
+
+            xmlElement.SetAttribute("HashpartStoragePath", HashpartStoragePath);
+            xmlElement.SetAttribute("HashlistStoragePath", HashlistStoragePath);
+        }
+
+        public override object FromXmlElement(XmlElement xmlElement)
+        {
+            HashpartStoragePath = xmlElement.GetAttribute("HashpartStoragePath");
+            HashlistStoragePath = xmlElement.GetAttribute("HashlistStoragePath");
+
+            if (!Directory.Exists(HashpartStoragePath))
+            {
+                Directory.CreateDirectory(HashpartStoragePath);
+            }
+            if (!Directory.Exists(HashlistStoragePath))
+            {
+                Directory.CreateDirectory(HashlistStoragePath);
+            }
+
+            return this;
         }
     }
 }

@@ -8,6 +8,7 @@ using System.Text;
 using System.Threading.Tasks;
 using System.Xml;
 using BlockShare.BlockSharing.BlockShareTypes;
+using BlockShare.BlockSharing.PreferencesManagement;
 using Microsoft.SqlServer.Server;
 
 namespace BlockShare.BlockSharing

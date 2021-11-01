@@ -1,4 +1,5 @@
 ﻿using BlockShare.BlockSharing.BlockShareTypes.BlockShareCommands;
+using BlockShare.BlockSharing.PreferencesManagement;
 using System;
 using System.Collections.Generic;
 using System.IO;
@@ -11,7 +12,7 @@ namespace BlockShare.BlockSharing.BlockShareTypes
 {
     public abstract class BlockShareCommand
     {
-        public BlockShareCommandType CommandType { get; protected set; }
+        public abstract BlockShareCommandType CommandType { get; }
 
         public Preferences Preferences { get; set; }
 
@@ -242,7 +243,15 @@ namespace BlockShare.BlockSharing.BlockShareTypes
                 case BlockShareCommandType.SetBlock:
                     command = new SetBlockCommand();
                     break;
-            }            
+
+                case BlockShareCommandType.GetFileInfo:
+                    command = new GetFileInfoCommand();
+                    break;
+
+                case BlockShareCommandType.SetFileInfo:
+                    command = new SetFileInfoCommand();
+                    break;
+            }
 
             if (command == null)
             {

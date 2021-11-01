@@ -12,14 +12,15 @@ namespace BlockShare.BlockSharing.BlockShareTypes.BlockShareCommands
         public string Path { get; set; }
         public int RecursionLevel { get; set; }
 
+        public override BlockShareCommandType CommandType => BlockShareCommandType.GetDirectoryDigest;
+
         public GetDirectoryDigestCommand()
         {
-            CommandType = BlockShareCommandType.GetDirectoryDigest;
+
         }
 
         public GetDirectoryDigestCommand(string path, int recursionLevel)
         {
-            CommandType = BlockShareCommandType.GetDirectoryDigest;
             Path = path;
             RecursionLevel = recursionLevel;
         }

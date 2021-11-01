@@ -9,9 +9,11 @@ namespace BlockShare.BlockSharing.BlockShareTypes.BlockShareCommands
 {
     public class InvalidOperationCommand : BlockShareCommand
     {
+        public override BlockShareCommandType CommandType => BlockShareCommandType.InvalidOperation;
+
         public InvalidOperationCommand()
         {
-            CommandType = BlockShareCommandType.InvalidOperation;
+
         }
 
         public override void WriteValuesToClient(TcpClient tcpClient, NetStat netStat)

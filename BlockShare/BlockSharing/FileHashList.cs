@@ -1,4 +1,5 @@
-﻿using System;
+﻿using BlockShare.BlockSharing.PreferencesManagement;
+using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.IO;
@@ -25,7 +26,7 @@ namespace BlockShare.BlockSharing
 
             if(serializationStream != null)
             {
-                DeserializeFromStream();
+                DeserializeFromStream(preferences);
             }
         }
         public FileHashList(int blocksCount, Stream serializationStream, Preferences preferences)
@@ -36,9 +37,9 @@ namespace BlockShare.BlockSharing
             this.preferences = preferences;
         }        
 
-        private void DeserializeFromStream()
+        private void DeserializeFromStream(Preferences preferences)
         {
-            int blocksCount = (int)(serializationStream.Length / Preferences.HashSize);
+            int blocksCount = (int)(serializationStream.Length / preferences.HashSize);
             if(hashBlocks.Length <= blocksCount)
             {
                 Array.Resize(ref hashBlocks, blocksCount);
@@ -46,7 +47,7 @@ namespace BlockShare.BlockSharing
             }
             for (int i = 0; i < blocksCount; i++)
             {
-                byte[] hash = new byte[Preferences.HashSize];
+                byte[] hash = new byte[preferences.HashSize];
                 long filePosition = i * preferences.BlockSize;
                 serializationStream.Read(hash, 0, hash.Length);
                 hashBlocks[i] = new FileHashBlock(filePosition, hash);
@@ -56,7 +57,7 @@ namespace BlockShare.BlockSharing
 
         public static FileHashList Deserialise(byte[] serializedHashList, Stream serializationStream, Preferences preferences)
         {
-            int blocksCount = serializedHashList.Length / Preferences.HashSize;
+            int blocksCount = serializedHashList.Length / preferences.HashSize;
             FileHashList list = new FileHashList(blocksCount, serializationStream, preferences);
 
             for(int i = 0; i < blocksCount; i++)

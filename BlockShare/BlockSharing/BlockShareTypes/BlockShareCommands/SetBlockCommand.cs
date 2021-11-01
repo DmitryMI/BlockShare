@@ -11,14 +11,14 @@ namespace BlockShare.BlockSharing.BlockShareTypes.BlockShareCommands
     {
         public byte[] Block { get; set; }
 
+        public override BlockShareCommandType CommandType => BlockShareCommandType.SetBlock;
+
         public SetBlockCommand()
         {
-            CommandType = BlockShareCommandType.SetBlock;
         }
 
         public SetBlockCommand(byte[] block)
         {
-            CommandType = BlockShareCommandType.SetBlock;
             Block = block;            
         }
 
