@@ -24,7 +24,11 @@ namespace BlockShare.BlockSharing
 
         public bool ClientBlockVerificationEnabled { get; set; } = false;
 
+#if DEBUG
         public int Verbosity { get; set; } = 3;
+#else
+        public int Verbosity { get; set; } = 0;
+#endif
 
         public int BrowserRecursionLevel { get; set; } = 1;
 
