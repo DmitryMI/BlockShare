@@ -59,7 +59,7 @@ namespace BlockShare.BlockSharing
 
             //SetEntryTypeCommand setEntryTypeCommand = (SetEntryTypeCommand)BlockShareCommand.ReadFromClient(tcpClient, clientNetStat, 10000);
             SetDirectoryDigestCommand setDirectoryDigestCommand;
-            BlockShareCommand response = BlockShareCommand.ReadFromClient(tcpClient, clientNetStat, 10000);
+            BlockShareCommand response = BlockShareCommand.ReadFromClient(tcpClient, clientNetStat, 0);
             if(response.CommandType == BlockShareCommandType.InvalidOperation)
             {
                 Log("Server refused to serve this operation", 0);
@@ -205,19 +205,21 @@ namespace BlockShare.BlockSharing
                                 FileHashListGenerator.CalculateBlock(blockBytes, 0, blockSize, preferences, j);
                             if (receivedBlock == remoteBlock)
                             {
+                                localHashList[j] = receivedBlock;
+                                localHashList.Flush(j);
                                 doSaveBlock = true;
                             }
                             else
                             {
                                 Log($"Received erroneus block: {Utils.PrintHex(blockBytes, 0, 16)}", 0);
-                            }
-
-                            localHashList[j] = receivedBlock;
-                            localHashList.Flush(j);
+                            }                            
                         }
                         else
                         {
-                            doSaveBlock = true;
+                            localHashList[j] = remoteBlock;
+                            // MAY BE NO FLUSHING HERE, BLOCK IS NOT VERIFIED!
+                            localHashList.Flush(j);                            
+                            doSaveBlock = true;         
                         }
 
                         if (doSaveBlock)
