@@ -20,6 +20,20 @@ namespace BlockShare.BlockSharing
 
         }
 
+        public static string TruncateStringStart(string str, int maxLength)
+        {            
+            if(string.IsNullOrEmpty(str))
+            {
+                return string.Empty;
+            }
+            StringBuilder stringBuilder = new StringBuilder();
+            for(int i = 0; i < maxLength && i < str.Length; i++)
+            {
+                stringBuilder.Insert(0, str[str.Length - i - 1]);
+            }
+            return stringBuilder.ToString();
+        }
+
         public static void EnsurePathExists(DirectoryInfo rootDirInfo, FileInfo fileInfo, Preferences preferences)
         {
             Stack<DirectoryInfo> pathStack = new Stack<DirectoryInfo>();

@@ -107,6 +107,8 @@
     <Compile Include="BlockSharing\FileHashList.cs" />
     <Compile Include="BlockSharing\FileHashListGenerator.cs" />
     <Compile Include="BlockSharing\FileSystemEntryType.cs" />
+    <Compile Include="BlockSharing\Gui\ConnectionListItem.cs" />
+    <Compile Include="BlockSharing\Gui\IpEndPoint.cs" />
     <Compile Include="BlockSharing\Gui\ServerForm.cs">
       <SubType>Form</SubType>
     </Compile>

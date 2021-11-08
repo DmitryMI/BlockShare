@@ -35,11 +35,15 @@ namespace BlockShare.BlockSharing
         #region Events
         public event Action<BlockShareServer, IPEndPoint> OnClientConnected;
         public event Action<BlockShareServer, IPEndPoint> OnClientDisconnected;
+        public event Action<BlockShareServer, IPEndPoint, string, long, long> OnBlocksRequested;
+        public event Action<BlockShareServer, IPEndPoint, string, long> OnBlockUploaded;
+
         public event Action<BlockShareServer> OnServerStopped;
         public event Action<BlockShareServer, string> OnUnhandledException;
 
         public event Action<BlockShareServer, string, double> OnHashingProgressChanged;
-        public event Action<BlockShareServer, string> OnHashingFinished;
+        public event Action<BlockShareServer, string> OnHashingFinished;       
+
         #endregion
 
         private void Log(string message, int withVerbosity)
@@ -390,7 +394,10 @@ namespace BlockShare.BlockSharing
                     GetBlockRangeCommand getBlockRangeCommand = (GetBlockRangeCommand)command;
                     string getBlocksFilePath = GetPath(getBlockRangeCommand.Path);
 
-                    if(!CheckRequestValidity(getBlocksFilePath))
+                    IPEndPoint clientEp = (IPEndPoint)tcpClient.Client.RemoteEndPoint;
+                    OnBlocksRequested?.Invoke(this, clientEp, getBlocksFilePath, getBlockRangeCommand.BlockIndex, getBlockRangeCommand.BlocksCount);
+                    
+                    if (!CheckRequestValidity(getBlocksFilePath))
                     {
                         // FIXME Shitty method to deal with such request.
                         return ClientLoopResult.Disconnect;
@@ -418,6 +425,8 @@ namespace BlockShare.BlockSharing
                             fileStream.Read(blockBytes, 0, (int)blockSize);
                             NetworkWrite(networkStream, blockBytes, 0, (int)blockSize);
                             serverNetStat.Payload += (ulong)(blockSize);
+
+                            OnBlockUploaded?.Invoke(this, clientEp, getBlocksFilePath, i);
                         }
                     }
 
