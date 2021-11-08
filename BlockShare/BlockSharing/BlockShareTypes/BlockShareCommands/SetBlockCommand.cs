@@ -24,13 +24,13 @@ namespace BlockShare.BlockSharing.BlockShareTypes.BlockShareCommands
 
         public override void WriteValuesToClient(TcpClient tcpClient, NetStat netStat)
         {
-            WriteBytesFixed(Block, 0, (int)Preferences.BlockSize, tcpClient, netStat);
+            NetUtils.WriteBytesFixed(Block, 0, (int)Preferences.BlockSize, tcpClient, netStat);
             netStat.Payload += (ulong)Preferences.BlockSize;
         }
 
         protected override void ReadValuesFromClient(TcpClient tcpClient, NetStat netStat, long timeout)
         {
-            Block = ReadBytesFixed((int)Preferences.BlockSize, tcpClient, netStat, timeout);
+            Block = NetUtils.ReadBytesFixed((int)Preferences.BlockSize, tcpClient, netStat, timeout);
         }
 
         public override string ToString()

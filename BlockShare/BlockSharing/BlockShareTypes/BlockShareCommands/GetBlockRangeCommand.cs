@@ -28,16 +28,16 @@ namespace BlockShare.BlockSharing.BlockShareTypes.BlockShareCommands
 
         public override void WriteValuesToClient(TcpClient tcpClient, NetStat netStat)
         {
-            WriteString(Path, tcpClient, netStat);
-            WriteLong(BlockIndex, tcpClient, netStat);
-            WriteLong(BlocksCount, tcpClient, netStat);
+            NetUtils.WriteString(Path, tcpClient, netStat);
+            NetUtils.WriteLong(BlockIndex, tcpClient, netStat);
+            NetUtils.WriteLong(BlocksCount, tcpClient, netStat);
         }
 
         protected override void ReadValuesFromClient(TcpClient tcpClient, NetStat netStat, long timeout)
         {
-            Path = ReadString(tcpClient, netStat, timeout);
-            BlockIndex = ReadLong(tcpClient, netStat, timeout);
-            BlocksCount = ReadLong(tcpClient, netStat, timeout);
+            Path = NetUtils.ReadString(tcpClient, netStat, timeout);
+            BlockIndex = NetUtils.ReadLong(tcpClient, netStat, timeout);
+            BlocksCount = NetUtils.ReadLong(tcpClient, netStat, timeout);
         }
 
         public override string ToString()

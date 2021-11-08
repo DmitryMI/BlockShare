@@ -28,14 +28,14 @@ namespace BlockShare.BlockSharing.BlockShareTypes.BlockShareCommands
 
         public override void WriteValuesToClient(TcpClient tcpClient, NetStat netStat)
         {
-            WriteString(Path, tcpClient, netStat);
-            WriteInt(RecursionLevel, tcpClient, netStat);
+            NetUtils.WriteString(Path, tcpClient, netStat);
+            NetUtils.WriteInt(RecursionLevel, tcpClient, netStat);
         }
 
         protected override void ReadValuesFromClient(TcpClient tcpClient, NetStat netStat, long timeout)
         {
-            Path = ReadString(tcpClient, netStat, timeout);
-            RecursionLevel = ReadInt(tcpClient, netStat, timeout);
+            Path = NetUtils.ReadString(tcpClient, netStat, timeout);
+            RecursionLevel = NetUtils.ReadInt(tcpClient, netStat, timeout);
         }
 
         public override string ToString()

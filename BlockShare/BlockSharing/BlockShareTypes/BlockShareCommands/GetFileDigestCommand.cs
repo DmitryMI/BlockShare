@@ -7,30 +7,30 @@ using System.Threading.Tasks;
 
 namespace BlockShare.BlockSharing.BlockShareTypes.BlockShareCommands
 {
-    public class GetFileInfoCommand : BlockShareCommand
+    public class GetFileDigestCommand : BlockShareCommand
     {
         public string Path { get; set; }
 
-        public override BlockShareCommandType CommandType => BlockShareCommandType.GetFileInfo;
+        public override BlockShareCommandType CommandType => BlockShareCommandType.GetFileDigest;
 
-        public GetFileInfoCommand()
+        public GetFileDigestCommand()
         {
             
         }
 
-        public GetFileInfoCommand(string path)
+        public GetFileDigestCommand(string path)
         {            
             Path = path;
         }
 
         public override void WriteValuesToClient(TcpClient tcpClient, NetStat netStat)
         {
-            WriteString(Path, tcpClient, netStat);
+            NetUtils.WriteString(Path, tcpClient, netStat);
         }
 
         protected override void ReadValuesFromClient(TcpClient tcpClient, NetStat netStat, long timeout)
         {
-            Path = ReadString(tcpClient, netStat, timeout);
+            Path = NetUtils.ReadString(tcpClient, netStat, timeout);
         }
 
         public override string ToString()

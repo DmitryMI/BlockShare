@@ -1,14 +1,16 @@
-﻿using System;
+﻿using BlockShare.BlockSharing.BlockShareTypes;
+using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Net.Sockets;
 using System.Text;
 using System.Threading.Tasks;
 using System.Xml;
 
 namespace BlockShare.BlockSharing.DirectoryDigesting
 {
-    public class FileDigest
+    public class FileDigest : INetSerializable
     {
         public string RelativePath { get; set; }
         public string Name { get; private set; }
@@ -33,7 +35,17 @@ namespace BlockShare.BlockSharing.DirectoryDigesting
             }
         }
 
+        public FileDigest()
+        {
+
+        }
+
         public FileDigest(XmlElement fileElement)
+        {
+            FromXmlElement(fileElement);
+        }
+
+        public void FromXmlElement(XmlElement fileElement)
         {
             XmlAttribute sizeAttribute = fileElement.GetAttributeNode("Size");
             if (sizeAttribute == null)
@@ -85,6 +97,37 @@ namespace BlockShare.BlockSharing.DirectoryDigesting
             fileElement.SetAttributeNode(nameAttribute);
 
             return fileElement;
+        }
+
+        public void WriteToClient(TcpClient tcpClient, NetStat netStat)
+        {
+            XmlDocument doc = new XmlDocument();
+            XmlDeclaration xmlDeclaration = doc.CreateXmlDeclaration("1.0", "UTF-8", null);
+            XmlElement root = doc.DocumentElement;
+            doc.InsertBefore(xmlDeclaration, root);
+            XmlElement fileDigestXml = ToXmlElement(doc);
+            doc.AppendChild(fileDigestXml);
+
+            StringWriter sw = new StringWriter();
+            XmlTextWriter tx = new XmlTextWriter(sw);
+            doc.WriteTo(tx);
+            string xmlString = sw.ToString();
+
+            NetUtils.WriteString(xmlString, tcpClient, netStat);
+        }
+
+        public void ReadFromClient(TcpClient tcpClient, NetStat netStat, long timeout)
+        {
+            string xmlString = NetUtils.ReadString(tcpClient, netStat, timeout);
+            XmlDocument xmlDocument = new XmlDocument();
+            xmlDocument.LoadXml(xmlString);
+            XmlElement fileDigest = xmlDocument["FileDigest"];
+            FromXmlElement(fileDigest);
+        }
+
+        public override string ToString()
+        {
+            return $"{RelativePath} ({Name}): {Size}";
         }
     }
 }

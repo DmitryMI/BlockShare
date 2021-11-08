@@ -105,7 +105,7 @@ namespace BlockShare.BlockSharing
             OnHashingFinished?.Invoke(this, fileName);
         }
 
-        private void DownloadFileNoHashlist(string fileName, int index)
+        private void DownloadFileNoHashlist(string fileName, int index, FileDigest fileDigest)
         {
             string localFilePath = Path.Combine(preferences.ClientStoragePath, fileName);
 
@@ -121,17 +121,16 @@ namespace BlockShare.BlockSharing
 
             using (FileStream localFileStream = new FileStream(localFileInfo.FullName, FileMode.OpenOrCreate, FileAccess.ReadWrite))
             {
-                //GetHashlistCommand getHashlistCommand = new GetHashlistCommand(fileName);
-                //BlockShareCommand.WriteToClient(getHashlistCommand, tcpClient, clientNetStat);
-                GetFileInfoCommand getFileInfoCommand = new GetFileInfoCommand(fileName);
-                BlockShareCommand.WriteToClient(getFileInfoCommand, tcpClient, clientNetStat);
+                if (fileDigest == null)
+                {
+                    GetFileDigestCommand getFileInfoCommand = new GetFileDigestCommand(fileName);
+                    BlockShareCommand.WriteToClient(getFileInfoCommand, tcpClient, clientNetStat);
 
-                //SetHashlistCommand setHashlistCommand = BlockShareCommand.ReadFromClient<SetHashlistCommand>(tcpClient, clientNetStat, 0);
-                //FileHashList remoteHashList = FileHashList.Deserialise(setHashlistCommand.HashlistSerialized, null, preferences);
-                //Log($"Hashlist blocks count: {remoteHashList.BlocksCount}", 2);
-                SetFileInfoCommand setFileInfoCommand = BlockShareCommand.ReadFromClient<SetFileInfoCommand>(tcpClient, clientNetStat, 1000);
+                    SetFileDigestCommand setFileDigestCommand = BlockShareCommand.ReadFromClient<SetFileDigestCommand>(tcpClient, clientNetStat, 1000);
 
-                long fileLength = setFileInfoCommand.FileLength;
+                    fileDigest = setFileDigestCommand.FileDigest;
+                }
+                long fileLength = fileDigest.Size;
                 long blocksCount = fileLength / preferences.BlockSize;
                 if (fileLength % preferences.BlockSize != 0)
                 {
@@ -181,7 +180,7 @@ namespace BlockShare.BlockSharing
             Log($"Downloading finished", 0);
         }
 
-        private void DownloadFileWithHashlist(string fileName, int index)
+        private void DownloadFileWithHashlist(string fileName, int index, FileDigest fileDigest)
         {
             string localFilePath = Path.Combine(preferences.ClientStoragePath, fileName);
             string localFileHashlistPath = preferences.HashMapper.GetHashpartFile(localFilePath);
@@ -323,15 +322,15 @@ namespace BlockShare.BlockSharing
             Log($"Downloading finished", 0);
         }
 
-        private void DownloadFileInternal(string fileName, int index)
+        private void DownloadFileInternal(string fileName, int index, FileDigest fileDigest)
         {
             if(preferences.UseHashLists)
             {
-                DownloadFileWithHashlist(fileName, index);
+                DownloadFileWithHashlist(fileName, index, fileDigest);
             }
             else
             {
-                DownloadFileNoHashlist(fileName, index);
+                DownloadFileNoHashlist(fileName, index, fileDigest);
             }
         }
 
@@ -372,14 +371,14 @@ namespace BlockShare.BlockSharing
                 Log($"Files to load: {allFiles.Count}", 0);
                 for (var index = 0; index < allFiles.Count; index++)
                 {
-                    DownloadFileInternal(allFiles[index].RelativePath, index);
+                    DownloadFileInternal(allFiles[index].RelativePath, index, allFiles[index]);
                     OnDownloadingFinished?.Invoke(this, allFiles[index].RelativePath);
                     //downloadProgress?.ReportOverallProgress(this, (double)index / allFiles.Count);
                 }
             }
             else
             {
-                DownloadFileInternal(entryName, 0);
+                DownloadFileInternal(entryName, 0, null);
             }
 
             OnDownloadingFinished?.Invoke(this, entryName);

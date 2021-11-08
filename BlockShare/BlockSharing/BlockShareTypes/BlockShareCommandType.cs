@@ -15,7 +15,7 @@ namespace BlockShare.BlockSharing.BlockShareTypes
         GetBlockRange,
         Disconnect,
         OpenFile,
-        GetFileInfo,
+        GetFileDigest,
 
         // Server to Client
         Ok,
@@ -24,6 +24,6 @@ namespace BlockShare.BlockSharing.BlockShareTypes
         SetHashlist,
         SetEntryType,
         SetBlock,
-        SetFileInfo,
+        SetFileDigest,
     }
 }

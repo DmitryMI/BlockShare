@@ -457,8 +457,8 @@ namespace BlockShare.BlockSharing
                     }
                     return ClientLoopResult.Continue;
 
-                case BlockShareCommandType.GetFileInfo:
-                    GetFileInfoCommand getFileInfoCommand = (GetFileInfoCommand)command;
+                case BlockShareCommandType.GetFileDigest:
+                    GetFileDigestCommand getFileInfoCommand = (GetFileDigestCommand)command;
                     string path = GetPath(getFileInfoCommand.Path);
                     bool invalidRequest = false;
                     if(!CheckRequestValidity(path))
@@ -476,12 +476,13 @@ namespace BlockShare.BlockSharing
                         return ClientLoopResult.Continue;
                     }
 
-                    SetFileInfoCommand setFileInfoCommand = new SetFileInfoCommand();
+                    SetFileDigestCommand setFileDigestCommand = new SetFileDigestCommand();
 
-                    FileInfo fileInfo = new FileInfo(path);
-                    setFileInfoCommand.FileLength = fileInfo.Length;
+                    //FileInfo fileInfo = new FileInfo(path);
+                    FileDigest fileDigest = new FileDigest(getFileInfoCommand.Path, path);
+                    setFileDigestCommand.FileDigest = fileDigest;
 
-                    BlockShareCommand.WriteToClient(setFileInfoCommand, tcpClient, serverNetStat);
+                    BlockShareCommand.WriteToClient(setFileDigestCommand, tcpClient, serverNetStat);
 
                     return ClientLoopResult.Continue;
             }

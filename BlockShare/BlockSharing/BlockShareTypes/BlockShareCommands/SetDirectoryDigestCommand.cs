@@ -20,12 +20,12 @@ namespace BlockShare.BlockSharing.BlockShareTypes.BlockShareCommands
 
         public override void WriteValuesToClient(TcpClient tcpClient, NetStat netStat)
         {
-            WriteString(XmlPayload, tcpClient, netStat);
+            NetUtils.WriteString(XmlPayload, tcpClient, netStat);
         }
 
         protected override void ReadValuesFromClient(TcpClient tcpClient, NetStat netStat, long timeout)
         {
-            XmlPayload = ReadString(tcpClient, netStat, timeout);
+            XmlPayload = NetUtils.ReadString(tcpClient, netStat, timeout);
         }
 
         public override string ToString()

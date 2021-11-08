@@ -20,14 +20,14 @@ namespace BlockShare.BlockSharing.BlockShareTypes.BlockShareCommands
         }
         public override void WriteValuesToClient(TcpClient tcpClient, NetStat netStat)
         {
-            WriteLong(FileLength, tcpClient, netStat);
-            WriteBytes(HashlistSerialized, tcpClient, netStat);
+            NetUtils.WriteLong(FileLength, tcpClient, netStat);
+            NetUtils.WriteBytes(HashlistSerialized, tcpClient, netStat);
         }
 
         protected override void ReadValuesFromClient(TcpClient tcpClient, NetStat netStat, long timeout)
         {
-            FileLength = ReadLong(tcpClient, netStat, timeout);
-            HashlistSerialized = ReadBytes(tcpClient, netStat, timeout);
+            FileLength = NetUtils.ReadLong(tcpClient, netStat, timeout);
+            HashlistSerialized = NetUtils.ReadBytes(tcpClient, netStat, timeout);
         }
 
         public override string ToString()
