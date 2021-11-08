@@ -21,7 +21,11 @@ namespace BlockShare.BlockSharing
         private NetStat clientNetStat = new NetStat();
         private bool disposedValue;
 
-        public NetStat GetClientNetStat => clientNetStat.CloneNetStat();
+        public NetStat CloneNetStat() => clientNetStat.CloneNetStat();
+        public void ClearNetStat()
+        {
+            clientNetStat.Clear();
+        }
 
         public ILogger Logger { get; set; }
 
@@ -137,43 +141,46 @@ namespace BlockShare.BlockSharing
                     blocksCount++;
                 }
 
-                byte[] blockBytes = new byte[preferences.BlockSize];
-
-                long downloadStartIndex = (localFileStream.Length / preferences.BlockSize);
-                long blocksLeft = blocksCount - downloadStartIndex;
-
-                GetBlockRangeCommand getBlockRangeCommand = new GetBlockRangeCommand(fileName, downloadStartIndex, blocksLeft);
-                BlockShareCommand.WriteToClient(getBlockRangeCommand, tcpClient, clientNetStat);
-
-                for (long j = downloadStartIndex; j < downloadStartIndex + blocksLeft; j++)
+                if (fileLength != localFileStream.Length)
                 {
-                    long filePos = j * preferences.BlockSize;
-                    long bytesLeft = fileLength - filePos;
-                    int blockSize;
-                    if (bytesLeft > preferences.BlockSize)
+                    byte[] blockBytes = new byte[preferences.BlockSize];
+
+                    long downloadStartIndex = (localFileStream.Length / preferences.BlockSize);
+                    long blocksLeft = blocksCount - downloadStartIndex;
+
+                    GetBlockRangeCommand getBlockRangeCommand = new GetBlockRangeCommand(fileName, downloadStartIndex, blocksLeft);
+                    BlockShareCommand.WriteToClient(getBlockRangeCommand, tcpClient, clientNetStat);
+
+                    for (long j = downloadStartIndex; j < downloadStartIndex + blocksLeft; j++)
                     {
-                        blockSize = (int)preferences.BlockSize;
+                        long filePos = j * preferences.BlockSize;
+                        long bytesLeft = fileLength - filePos;
+                        int blockSize;
+                        if (bytesLeft > preferences.BlockSize)
+                        {
+                            blockSize = (int)preferences.BlockSize;
+                        }
+                        else
+                        {
+                            blockSize = (int)bytesLeft;
+                        }
+
+                        NetworkRead(tcpClient, blockBytes, 0, blockSize, 0);
+                        clientNetStat.Payload += (ulong)blockSize;
+
+                        localFileStream.Seek(filePos, SeekOrigin.Begin);
+                        localFileStream.Write(blockBytes, 0, blockSize);
+
+                        DownloadingProgressEventData eventData = new DownloadingProgressEventData()
+                        {
+                            FileName = fileName,
+                            RemoteHashList = null,
+                            LocalHashList = null,
+                            BlocksCount = (int)blocksCount,
+                            DownloadedBlockIndex = (int)j
+                        };
+                        OnBlockDownloaded?.Invoke(this, eventData);
                     }
-                    else
-                    {
-                        blockSize = (int)bytesLeft;
-                    }
-
-                    NetworkRead(tcpClient, blockBytes, 0, blockSize, 0);
-                    clientNetStat.Payload += (ulong)blockSize;
-
-                    localFileStream.Seek(filePos, SeekOrigin.Begin);
-                    localFileStream.Write(blockBytes, 0, blockSize);
-
-                    DownloadingProgressEventData eventData = new DownloadingProgressEventData()
-                    {
-                        FileName = fileName,
-                        RemoteHashList = null,
-                        LocalHashList = null,
-                        BlocksCount = (int)blocksCount,
-                        DownloadedBlockIndex = (int)j
-                    };
-                    OnBlockDownloaded?.Invoke(this, eventData);
                 }
             }
 

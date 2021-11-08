@@ -100,7 +100,8 @@ namespace BlockShare
                 fileName = fileName.Remove(0, 1);
             }
 
-            Stopwatch sw = Stopwatch.StartNew();
+            client.ClearNetStat();
+            Stopwatch sw = Stopwatch.StartNew();            
             client.DownloadFile(fileName);
             sw.Stop();
             long millis = sw.ElapsedMilliseconds;
@@ -117,7 +118,7 @@ namespace BlockShare
                 Console.WriteLine("Nothing was downloaded");
             }
 
-            NetStat clientNetStat = client.GetClientNetStat;
+            NetStat clientNetStat = client.CloneNetStat();
 
             if (clientNetStat.TotalReceived == 0)
             {

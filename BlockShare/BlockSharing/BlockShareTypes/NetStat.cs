@@ -48,5 +48,12 @@ namespace BlockShare.BlockSharing.BlockShareTypes
             };
             return clone;
         }
+
+        public void Clear()
+        {
+            TotalReceived = 0;
+            TotalSent = 0;
+            Payload = 0;
+        }
     }
 }
