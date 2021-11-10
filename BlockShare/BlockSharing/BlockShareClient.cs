@@ -52,6 +52,7 @@ namespace BlockShare.BlockSharing
             Log($"Connecting to server {preferences.ServerIp} {preferences.ServerPort}...", 0);
 
             tcpClient = new TcpClient();
+
             tcpClient.Connect(preferences.ServerIp, preferences.ServerPort);
 
             Log($"Connected to server {preferences.ServerIp} {preferences.ServerPort}", 0);
