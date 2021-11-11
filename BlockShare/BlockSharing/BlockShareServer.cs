@@ -9,6 +9,7 @@ using System.Threading.Tasks;
 using BlockShare.BlockSharing.BlockShareTypes;
 using BlockShare.BlockSharing.BlockShareTypes.BlockShareCommands;
 using BlockShare.BlockSharing.DirectoryDigesting;
+using BlockShare.BlockSharing.NetworkStatistics;
 using BlockShare.BlockSharing.PreferencesManagement;
 
 namespace BlockShare.BlockSharing

@@ -5,7 +5,7 @@ using System.Text;
 using System.Threading.Tasks;
 using System.Xml;
 
-namespace BlockShare.BlockSharing.BlockShareTypes
+namespace BlockShare.BlockSharing.PreferencesManagement
 {
     public interface IPreferencesSerializable
     {

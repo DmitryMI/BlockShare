@@ -4,7 +4,7 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
-namespace BlockShare.BlockSharing.BlockShareTypes
+namespace BlockShare.BlockSharing.NetworkStatistics
 {
     public class NetStat : ICloneable
     {

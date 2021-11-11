@@ -1,6 +1,7 @@
 ﻿using BlockShare.BlockSharing.BlockShareTypes;
 using BlockShare.BlockSharing.BlockShareTypes.BlockShareCommands;
 using BlockShare.BlockSharing.DirectoryDigesting;
+using BlockShare.BlockSharing.NetworkStatistics;
 using BlockShare.BlockSharing.PreferencesManagement;
 using System;
 using System.Collections.Generic;
@@ -123,6 +124,11 @@ namespace BlockShare.BlockSharing
             {
                 File.Create(localFileInfo.FullName).Close();
             }
+            else if (localFileInfo.Length == fileDigest.Size)
+            {
+                Log($"Downloading finished", 1);
+                return;
+            }            
 
             using (FileStream localFileStream = new FileStream(localFileInfo.FullName, FileMode.OpenOrCreate, FileAccess.ReadWrite))
             {
@@ -185,7 +191,7 @@ namespace BlockShare.BlockSharing
                 }
             }
 
-            Log($"Downloading finished", 0);
+            Log($"Downloading finished", 1);
         }
 
         private void DownloadFileWithHashlist(string fileName, int index, FileDigest fileDigest)

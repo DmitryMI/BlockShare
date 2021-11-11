@@ -1,4 +1,5 @@
 ﻿using BlockShare.BlockSharing.BlockShareTypes.BlockShareCommands;
+using BlockShare.BlockSharing.NetworkStatistics;
 using BlockShare.BlockSharing.PreferencesManagement;
 using System;
 using System.Collections.Generic;

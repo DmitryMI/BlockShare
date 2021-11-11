@@ -36,6 +36,11 @@ namespace BlockShare.BlockSharing
 
         public static void EnsurePathExists(DirectoryInfo rootDirInfo, FileInfo fileInfo, Preferences preferences)
         {
+            if(File.Exists(fileInfo.FullName))
+            {
+                return;
+            }
+
             Stack<DirectoryInfo> pathStack = new Stack<DirectoryInfo>();
             DirectoryInfo parent = fileInfo.Directory;
 

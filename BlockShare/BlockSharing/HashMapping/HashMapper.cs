@@ -1,4 +1,4 @@
-﻿using BlockShare.BlockSharing.BlockShareTypes;
+﻿using BlockShare.BlockSharing.PreferencesManagement;
 using System;
 using System.Xml;
 

@@ -13,6 +13,7 @@ using System.Runtime.InteropServices;
 using BlockShare.BlockSharing.Gui;
 using BlockShare.BlockSharing.BlockShareTypes;
 using BlockShare.BlockSharing.PreferencesManagement;
+using BlockShare.BlockSharing.NetworkStatistics;
 
 namespace BlockShare
 {
@@ -202,7 +203,7 @@ namespace BlockShare
         {
             //BlockShareClientOld client = new BlockShareClientOld(preferences, clientLogger);
             //DirectoryDigest rootDigest = client.GetDirectoryDigest(ip, port, fileName, 1);
-            DirectoryDigest rootDigest = client.GetDirectoryDigest(fileName, 1);
+            DirectoryDigest rootDigest = client.GetDirectoryDigest(fileName, preferences.BrowserRecursionLevel);
             if (rootDigest == null)
             {
                 Console.WriteLine("Error during receiving remote file system info");
@@ -217,7 +218,7 @@ namespace BlockShare
                 {
                     Console.WriteLine("Loading...");
                     //DirectoryDigest digest = client.GetDirectoryDigest(ip, port, current.RelativePath, 1 );
-                    DirectoryDigest digest = client.GetDirectoryDigest(current.RelativePath, 1);
+                    DirectoryDigest digest = client.GetDirectoryDigest(current.RelativePath, preferences.BrowserRecursionLevel);
                     current.LoadEntriesFrom(digest);
                 }
 

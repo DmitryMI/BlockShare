@@ -28,10 +28,24 @@ namespace BlockShare.BlockSharing.DirectoryDigesting
         public string RelativePath { get; private set; }
         public string Name { get; private set; }
 
+        #region events
+
+        #endregion
+
         public DirectoryDigest (DirectoryInfo directoryInfo, DirectoryInfo rootDirectoryInfo, int recursionLevel = Int32.MaxValue)
         {
+            GenerateDigest(directoryInfo, rootDirectoryInfo, recursionLevel);
+        }
+
+        public DirectoryDigest()
+        {
+
+        }
+
+        public void GenerateDigest(DirectoryInfo directoryInfo, DirectoryInfo rootDirectoryInfo, int recursionLevel = Int32.MaxValue)
+        {
             this.directoryInfo = directoryInfo;
-            this.rootDirectoryInfo = rootDirectoryInfo;            
+            this.rootDirectoryInfo = rootDirectoryInfo;
 
             if (recursionLevel > 0)
             {
@@ -39,7 +53,9 @@ namespace BlockShare.BlockSharing.DirectoryDigesting
 
                 foreach (DirectoryInfo directory in directoryInfos)
                 {
-                    DirectoryDigest directoryDigest = new DirectoryDigest(directory, rootDirectoryInfo, recursionLevel - 1);
+                    //DirectoryDigest directoryDigest = new DirectoryDigest(directory, rootDirectoryInfo, recursionLevel - 1);
+                    DirectoryDigest directoryDigest = new DirectoryDigest();
+                    directoryDigest.GenerateDigest(directory, rootDirectoryInfo, recursionLevel - 1);
                     Size += directoryDigest.Size;
                     subdirsDigestList.Add(directoryDigest);
                 }
@@ -67,11 +83,11 @@ namespace BlockShare.BlockSharing.DirectoryDigesting
             else
             {
                 IsLoaded = false;
-                Size = Utils.GetDirSize(directoryInfo);
+                //Size = Utils.GetDirSize(directoryInfo);
             }
 
             string dir = directoryInfo.FullName;
-            string dirRelativePath = dir.Replace(rootDirectoryInfo.FullName, "");            
+            string dirRelativePath = dir.Replace(rootDirectoryInfo.FullName, "");
             if (dirRelativePath.Length > 0 && (dirRelativePath[0] == '\\' || dirRelativePath[0] == '/'))
             {
                 dirRelativePath = dirRelativePath.Remove(0, 1);
@@ -80,6 +96,7 @@ namespace BlockShare.BlockSharing.DirectoryDigesting
             RelativePath = dirRelativePath;
             Name = directoryInfo.Name;
         }
+
 
         private XmlElement ToXmlElement(XmlDocument doc, XmlElement parent)
         { 
@@ -271,6 +288,7 @@ namespace BlockShare.BlockSharing.DirectoryDigesting
             IsLoaded = directoryDigest.IsLoaded;
             fileDigestList = directoryDigest.fileDigestList;
             subdirsDigestList = directoryDigest.subdirsDigestList;
+            Size = directoryDigest.Size;
         }
     }
 }

@@ -99,7 +99,8 @@
     <Compile Include="BlockSharing\BlockShareTypes\ClientLoopResult.cs" />
     <Compile Include="BlockSharing\BlockShareTypes\DownloadingProgressEventData.cs" />
     <Compile Include="BlockSharing\BlockShareTypes\INetSerializable.cs" />
-    <Compile Include="BlockSharing\BlockShareTypes\IPreferencesSerializable.cs" />
+    <Compile Include="BlockSharing\NetworkStatistics\NetStatSpeed.cs" />
+    <Compile Include="BlockSharing\PreferencesManagement\IPreferencesSerializable.cs" />
     <Compile Include="BlockSharing\BlockShareTypes\NetUtils.cs" />
     <Compile Include="BlockSharing\DirectoryDigesting\DirectoryDigest.cs" />
     <Compile Include="BlockSharing\DirectoryDigesting\FileDigest.cs" />
@@ -109,6 +110,7 @@
     <Compile Include="BlockSharing\FileSystemEntryType.cs" />
     <Compile Include="BlockSharing\Gui\ConnectionListItem.cs" />
     <Compile Include="BlockSharing\Gui\IpEndPoint.cs" />
+    <Compile Include="BlockSharing\NetworkStatistics\NetStatHistory.cs" />
     <Compile Include="BlockSharing\Gui\ServerForm.cs">
       <SubType>Form</SubType>
     </Compile>
@@ -116,7 +118,7 @@
     <Compile Include="BlockSharing\HashMapping\HashMapper.cs" />
     <Compile Include="BlockSharing\HashMapping\ShaHashMapper.cs" />
     <Compile Include="BlockSharing\BlockShareTypes\ILogger.cs" />
-    <Compile Include="BlockSharing\BlockShareTypes\NetStat.cs" />
+    <Compile Include="BlockSharing\NetworkStatistics\NetStat.cs" />
     <Compile Include="BlockSharing\PreferencesManagement\Preferences.cs" />
     <Compile Include="BlockSharing\PreferencesManagement\PreferencesManager.cs" />
     <Compile Include="BlockSharing\Utils.cs" />

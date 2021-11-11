@@ -1,4 +1,4 @@
-﻿using BlockShare.BlockSharing.BlockShareTypes;
+﻿using BlockShare.BlockSharing.NetworkStatistics;
 using BlockShare.BlockSharing.PreferencesManagement;
 using System;
 using System.Collections.Generic;
@@ -30,8 +30,8 @@ namespace BlockShare.BlockSharing.Gui
 
         private BlockShareServer blockShareServer;
 
-        private NetStat[] netstatHistory = new NetStat[30];
-        private int netstatHistoryIndex = 0;        
+        private NetStatHistory netStatHistory = new NetStatHistory(30);
+       
 
         public ServerForm(Preferences preferences)
         {
@@ -341,47 +341,7 @@ namespace BlockShare.BlockSharing.Gui
         private void SetUpSpeedLabel(string value)
         {
             UpSpeedLabel.Text = "U/L: " + value;
-        }
-
-        private NetStat GetHistoricalRecord(int relativeIndex)
-        {
-            int index = (netstatHistory.Length + (netstatHistoryIndex - relativeIndex)) % netstatHistory.Length;
-            if(index < 0)
-            {
-                index = -index;
-            }
-            //Debug.WriteLine("GetHistoricalRecord: " + index);
-            return netstatHistory[index];
-        }
-
-        private void AppendHistoricalRecord(NetStat netStat)
-        {
-            int nextIndex = (netstatHistoryIndex + 1) % netstatHistory.Length;
-            netstatHistoryIndex = nextIndex;
-            netstatHistory[nextIndex] = netStat;
-        }
-
-        private double GetAverageDownSpeed(double timeSpan)
-        {
-            NetStat firstRecord = GetHistoricalRecord(netstatHistory.Length - 1);
-            NetStat lastRecord = GetHistoricalRecord(0);
-            NetStat diff = lastRecord - firstRecord;
-            double receivedAverage = (double)diff.TotalReceived / netstatHistory.Length;
-            double downSpeed = receivedAverage / timeSpan;
-            return downSpeed;
-        }
-
-        private double GetAverageUpSpeed(double timeSpan)
-        {
-            //Debug.WriteLine("GetAverageUpSpeed...");
-            NetStat firstRecord = GetHistoricalRecord(netstatHistory.Length - 1);
-            NetStat lastRecord = GetHistoricalRecord(0);
-            NetStat diff = lastRecord - firstRecord;
-            double sentAverage = (double)diff.TotalSent / netstatHistory.Length;
-            //Debug.WriteLine("GetAverageUpSpeed: " + sentAverage);
-            double upSpeed = sentAverage / timeSpan;
-            return upSpeed;
-        }
+        }   
 
         private void InfoTimer_Tick(object sender, EventArgs e)
         {
@@ -394,12 +354,13 @@ namespace BlockShare.BlockSharing.Gui
             }
 
             NetStat netStat = blockShareServer.GetServerNetStat();
-            AppendHistoricalRecord(netStat);
+            netStatHistory.AppendHistoricalRecord(netStat);
 
             double seconds = InfoTimer.Interval / 1000.0f;
 
-            double downSpeed = GetAverageDownSpeed(seconds);
-            double upSpeed = GetAverageUpSpeed(seconds);
+            NetStatSpeed speed = netStatHistory.GetAverageSpeed(seconds);
+            double downSpeed = speed.DownSpeed;
+            double upSpeed = speed.UpSpeed;
             SetDownSpeedLabel(Utils.FormatSpeed(downSpeed));
             SetUpSpeedLabel(Utils.FormatSpeed(upSpeed));            
         }
@@ -412,9 +373,10 @@ namespace BlockShare.BlockSharing.Gui
         private void StopButton_Click(object sender, EventArgs e)
         {
             blockShareServer.StopServer();
+            netStatHistory.Clear();
             StartButton.Enabled = true;
             StopButton.Enabled = false;
-            SetListeningLabel("N/A");            
+            SetListeningLabel("N/A");
         }
 
         private void ServerForm_ResizeEnd(object sender, EventArgs e)
