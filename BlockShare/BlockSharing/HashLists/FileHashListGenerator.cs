@@ -1,4 +1,5 @@
 ﻿using BlockShare.BlockSharing.BlockShareTypes;
+using BlockShare.BlockSharing.HashLists;
 using BlockShare.BlockSharing.PreferencesManagement;
 using System;
 using System.Collections.Generic;
@@ -8,7 +9,7 @@ using System.Security.Cryptography;
 using System.Text;
 using System.Threading.Tasks;
 
-namespace BlockShare.BlockSharing
+namespace BlockShare.BlockSharing.HashLists
 {
     public static class FileHashListGenerator
     {

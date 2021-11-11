@@ -4,7 +4,7 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
-namespace BlockShare.BlockSharing
+namespace BlockShare.BlockSharing.HashLists
 {
     public class FileHashBlock
     {
@@ -20,14 +20,14 @@ namespace BlockShare.BlockSharing
         public bool CompareHash(FileHashBlock otherBlock)
         {
             byte[] otherBlockHash = otherBlock.Hash;
-            if(otherBlockHash == null || Hash == null)
+            if (otherBlockHash == null || Hash == null)
             {
                 return Hash == otherBlockHash;
             }
-            
-            for(int i = 0; i < Hash.Length; i++)
+
+            for (int i = 0; i < Hash.Length; i++)
             {
-                if(Hash[i] != otherBlockHash[i])
+                if (Hash[i] != otherBlockHash[i])
                 {
                     return false;
                 }
@@ -38,7 +38,7 @@ namespace BlockShare.BlockSharing
 
         public override bool Equals(object obj)
         {
-            if(obj is FileHashBlock otherBlock)
+            if (obj is FileHashBlock otherBlock)
             {
                 return FilePosition == otherBlock.FilePosition && CompareHash(otherBlock);
             }
@@ -55,9 +55,9 @@ namespace BlockShare.BlockSharing
 
         public static bool operator ==(FileHashBlock block1, FileHashBlock block2)
         {
-            if((object)block1 == null || (object)block2 == null)
+            if ((object)block1 == null || (object)block2 == null)
             {
-                return (object)block1 == (object)block2;
+                return block1 == (object)block2;
             }
             return block1.FilePosition == block2.FilePosition && block1.CompareHash(block2);
         }
@@ -66,7 +66,7 @@ namespace BlockShare.BlockSharing
         {
             if ((object)block1 == null || (object)block2 == null)
             {
-                return (object)block1 != (object)block2;
+                return block1 != (object)block2;
             }
 
             return block1.FilePosition != block2.FilePosition || block1.CompareHash(block2);
@@ -76,10 +76,10 @@ namespace BlockShare.BlockSharing
         {
             StringBuilder builder = new StringBuilder();
             builder.Append($"[{FilePosition}] (");
-            for(int i = 0; i < Hash.Length; i++)
+            for (int i = 0; i < Hash.Length; i++)
             {
                 builder.Append($"{Hash[i]:X2}");
-                if(i < Hash.Length - 1)
+                if (i < Hash.Length - 1)
                 {
                     //builder.Append(' ');
                 }

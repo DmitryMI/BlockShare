@@ -116,10 +116,10 @@
     <Compile Include="BlockSharing\BlockShareTypes\NetUtils.cs" />
     <Compile Include="BlockSharing\DirectoryDigesting\DirectoryDigest.cs" />
     <Compile Include="BlockSharing\DirectoryDigesting\FileDigest.cs" />
-    <Compile Include="BlockSharing\FileHashBlock.cs" />
-    <Compile Include="BlockSharing\FileHashList.cs" />
-    <Compile Include="BlockSharing\FileHashListGenerator.cs" />
-    <Compile Include="BlockSharing\FileSystemEntryType.cs" />
+    <Compile Include="BlockSharing\HashLists\FileHashBlock.cs" />
+    <Compile Include="BlockSharing\HashLists\FileHashList.cs" />
+    <Compile Include="BlockSharing\HashLists\FileHashListGenerator.cs" />
+    <Compile Include="BlockSharing\BlockShareTypes\FileSystemEntryType.cs" />
     <Compile Include="BlockSharing\Gui\ConnectionListItem.cs" />
     <Compile Include="BlockSharing\Gui\IpEndPoint.cs" />
     <Compile Include="BlockSharing\NetworkStatistics\NetStatHistory.cs" />

@@ -1,4 +1,5 @@
-﻿using BlockShare.BlockSharing.PreferencesManagement;
+﻿using BlockShare.BlockSharing.HashLists;
+using BlockShare.BlockSharing.PreferencesManagement;
 using System;
 using System.Collections;
 using System.Collections.Generic;
@@ -7,7 +8,7 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
-namespace BlockShare.BlockSharing
+namespace BlockShare.BlockSharing.HashLists
 {
     public class FileHashList : IEnumerable<FileHashBlock>
     {

@@ -1,6 +1,7 @@
 ﻿using BlockShare.BlockSharing.BlockShareTypes;
 using BlockShare.BlockSharing.BlockShareTypes.BlockShareCommands;
 using BlockShare.BlockSharing.DirectoryDigesting;
+using BlockShare.BlockSharing.HashLists;
 using BlockShare.BlockSharing.NetworkStatistics;
 using BlockShare.BlockSharing.PreferencesManagement;
 using System;
@@ -124,7 +125,7 @@ namespace BlockShare.BlockSharing
             {
                 File.Create(localFileInfo.FullName).Close();
             }
-            else if (localFileInfo.Length == fileDigest.Size)
+            else if (fileDigest != null && localFileInfo.Length == fileDigest.Size)
             {
                 Log($"Downloading finished", 1);
                 return;

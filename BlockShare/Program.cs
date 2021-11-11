@@ -14,6 +14,7 @@ using BlockShare.BlockSharing.Gui;
 using BlockShare.BlockSharing.BlockShareTypes;
 using BlockShare.BlockSharing.PreferencesManagement;
 using BlockShare.BlockSharing.NetworkStatistics;
+using BlockShare.BlockSharing.HashLists;
 
 namespace BlockShare
 {
