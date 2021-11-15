@@ -31,9 +31,23 @@ namespace BlockShare.BlockSharing.PreferencesManagement
 
         public object FromXmlElement(XmlElement xmlElement)
         {
+            if(xmlElement == null)
+            {
+                Method = SecurityMethod.None;
+                return this;
+            }
+
             XmlElement methodElement = xmlElement["Method"];
 
-            Method = (SecurityMethod)Enum.Parse(typeof(SecurityMethod), methodElement.InnerText);
+            if (methodElement == null)
+            {
+                Method = SecurityMethod.None;
+            }
+            else
+            {
+
+                Method = (SecurityMethod)Enum.Parse(typeof(SecurityMethod), methodElement.InnerText);
+            }
 
             XmlElement certificateAuthorityPath = xmlElement["CertificateAuthorityPath"];
             if(certificateAuthorityPath != null)
@@ -78,37 +92,37 @@ namespace BlockShare.BlockSharing.PreferencesManagement
             if(CertificateAuthorityPath != null)
             {
                 XmlElement prefsElement = doc.CreateElement("CertificateAuthorityPath");
-                methodElement.InnerText = CertificateAuthorityPath;
+                prefsElement.InnerText = CertificateAuthorityPath;
                 xmlElement.AppendChild(prefsElement);
             }
             if (ServerCertificatePath != null)
             {
                 XmlElement prefsElement = doc.CreateElement("ServerCertificatePath");
-                methodElement.InnerText = ServerCertificatePath;
+                prefsElement.InnerText = ServerCertificatePath;
                 xmlElement.AppendChild(prefsElement);
             }
             if (ClientCertificatePath != null)
             {
                 XmlElement prefsElement = doc.CreateElement("ClientCertificatePath");
-                methodElement.InnerText = ClientCertificatePath;
+                prefsElement.InnerText = ClientCertificatePath;
                 xmlElement.AppendChild(prefsElement);
             }
             if (AcceptedCertificatesDirectoryPath != null)
             {
                 XmlElement prefsElement = doc.CreateElement("AcceptedCertificatesDirectoryPath");
-                methodElement.InnerText = AcceptedCertificatesDirectoryPath;
+                prefsElement.InnerText = AcceptedCertificatesDirectoryPath;
                 xmlElement.AppendChild(prefsElement);
             }
             if (ServerName != null)
             {
                 XmlElement prefsElement = doc.CreateElement("ServerName");
-                methodElement.InnerText = ServerName;
+                prefsElement.InnerText = ServerName;
                 xmlElement.AppendChild(prefsElement);
             }
             if (ClientName != null)
             {
                 XmlElement prefsElement = doc.CreateElement("ClientName");
-                methodElement.InnerText = ClientName;
+                prefsElement.InnerText = ClientName;
                 xmlElement.AppendChild(prefsElement);
             }
 

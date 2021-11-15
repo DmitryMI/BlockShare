@@ -92,7 +92,7 @@ namespace BlockShare.BlockSharing
                 Log($"Using security method: {preferences.SecurityPreferences.Method}", 0);
 
                 X509Certificate clientCertificate = null;
-                X509Certificate.CreateFromCertFile(preferences.SecurityPreferences.ClientCertificatePath);
+                clientCertificate = X509Certificate.CreateFromCertFile(preferences.SecurityPreferences.ClientCertificatePath);
                 X509CertificateCollection clientCertificates = new X509CertificateCollection() { clientCertificate };
 
 
