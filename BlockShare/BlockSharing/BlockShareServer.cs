@@ -6,6 +6,7 @@ using System.Net;
 using System.Net.Security;
 using System.Net.Sockets;
 using System.Security.Authentication;
+using System.Security.Cryptography;
 using System.Security.Cryptography.X509Certificates;
 using System.Text;
 using System.Threading.Tasks;
@@ -25,6 +26,8 @@ namespace BlockShare.BlockSharing
         private Preferences preferences;
 
         private IPEndPoint localEndpoint;
+
+        private List<X509Certificate> acceptableCertificates = new List<X509Certificate>();
 
         public ILogger Logger { get; set; }
 
@@ -74,6 +77,8 @@ namespace BlockShare.BlockSharing
             this.preferences = preferences;
             Logger = logger;
             localEndpoint = new IPEndPoint(IPAddress.Parse(ip), port);
+
+            InitializeCertificates();
         }
 
         public BlockShareServer(Preferences preferences, ILogger logger)
@@ -81,7 +86,19 @@ namespace BlockShare.BlockSharing
             this.preferences = preferences;
             Logger = logger;
             localEndpoint = new IPEndPoint(IPAddress.Parse(preferences.ServerIp), preferences.ServerPort);
+
+            InitializeCertificates();
         }
+
+        private void InitializeCertificates()
+        {
+            if(preferences?.SecurityPreferences?.AcceptedCertificatesDirectoryPath != null)
+            {
+                string path = preferences.SecurityPreferences.AcceptedCertificatesDirectoryPath;
+                acceptableCertificates.AddRange(Utils.GetCertificates(path));
+            }
+        }
+
 
         public void StartServer()
         {
@@ -493,6 +510,20 @@ namespace BlockShare.BlockSharing
                 return true;
             }
 
+            if(certificate == null)
+            {
+                Log("No certificate was provided", 0);
+                return false;
+            }
+
+            foreach(X509Certificate acceptedCert in acceptableCertificates)
+            {                
+                if(Utils.CompareBytes(acceptedCert.GetCertHash(), certificate.GetCertHash()))
+                {
+                    return true;
+                }
+            }
+            
             Log($"Server certificate validation error: {sslPolicyErrors}", 0);
             return false;
         }
@@ -551,9 +582,10 @@ namespace BlockShare.BlockSharing
             {
                 Log($"Using security method: {preferences.SecurityPreferences.Method}", 0);
 
-                X509Certificate serverCertificate = null;
-                X509Certificate.CreateFromCertFile(preferences.SecurityPreferences.ServerCertificatePath);
-                
+                //X509Certificate serverCertificate;
+                //serverCertificate = X509Certificate.CreateFromCertFile(preferences.SecurityPreferences.ServerCertificatePath);
+                X509Certificate2 serverCertificate = Utils.CreateFromPkcs12(preferences.SecurityPreferences.ServerCertificatePath);
+
                 SslStream sslStream = new SslStream(
                     client.GetStream(),
                     false,
@@ -569,6 +601,8 @@ namespace BlockShare.BlockSharing
 
                     sslStream.ReadTimeout = 60000;
                     sslStream.WriteTimeout = 60000;
+
+                    networkStream = sslStream;
                 }
                 catch(AuthenticationException e)
                 {
@@ -582,6 +616,7 @@ namespace BlockShare.BlockSharing
                     client.Close();
                     return;
                 }
+                
             }
             else
             {
@@ -617,7 +652,7 @@ namespace BlockShare.BlockSharing
                 {
                    Log("Client was timed out: \n" + ex.Message, 0);
 #if DEBUG
-                   Log(ex.StackTrace);
+                   Log(ex.StackTrace, 0);
 #endif
                 }
                 catch(IOException)
@@ -629,7 +664,7 @@ namespace BlockShare.BlockSharing
                     OnUnhandledException?.Invoke(this, ex.Message);
                    Log(ex.Message, 0);
 #if DEBUG
-                   Log(ex.StackTrace);
+                   Log(ex.StackTrace, 0);
                     throw ex;
 #endif
                 }

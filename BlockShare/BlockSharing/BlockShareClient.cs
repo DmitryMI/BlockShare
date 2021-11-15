@@ -23,6 +23,8 @@ namespace BlockShare.BlockSharing
 
         private Stream networkStream;
 
+        private List<X509Certificate> acceptableCertificates = new List<X509Certificate>();
+
         private Preferences preferences;
 
         private NetStat clientNetStat = new NetStat();
@@ -62,6 +64,20 @@ namespace BlockShare.BlockSharing
                 return true;
             }
 
+            if (certificate == null)
+            {
+                Log("No certificate was provided", 0);
+                return false;
+            }
+
+            foreach (X509Certificate acceptedCert in acceptableCertificates)
+            {
+                if (Utils.CompareBytes(acceptedCert.GetCertHash(), certificate.GetCertHash()))
+                {
+                    return true;
+                }
+            }
+
             Log($"Server certificate validation error: {sslPolicyErrors}", 0);
             return false;
         }
@@ -91,10 +107,16 @@ namespace BlockShare.BlockSharing
             {
                 Log($"Using security method: {preferences.SecurityPreferences.Method}", 0);
 
-                X509Certificate clientCertificate = null;
-                clientCertificate = X509Certificate.CreateFromCertFile(preferences.SecurityPreferences.ClientCertificatePath);
-                X509CertificateCollection clientCertificates = new X509CertificateCollection() { clientCertificate };
+                acceptableCertificates.AddRange(Utils.GetCertificates(preferences.SecurityPreferences.AcceptedCertificatesDirectoryPath));
 
+                Log($"Accepted certificates count: {acceptableCertificates.Count}", 0);
+
+                X509Certificate clientCertificate = null;
+                clientCertificate = Utils.CreateFromPkcs12(preferences.SecurityPreferences.ClientCertificatePath);
+
+                Log($"Client certificate: {clientCertificate.GetCertHashString()}", 0);
+
+                X509CertificateCollection clientCertificates = new X509CertificateCollection() { clientCertificate };
 
                 NetworkStream basicStream = tcpClient.GetStream();
 
@@ -118,7 +140,8 @@ namespace BlockShare.BlockSharing
                     }
                     Log("Authentication failed - closing the connection.", 0);
                     tcpClient.Close();
-                    return;
+
+                    throw;
                 }
 
                 networkStream = sslStream;
