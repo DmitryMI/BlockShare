@@ -2,6 +2,7 @@
 using BlockShare.BlockSharing.NetworkStatistics;
 using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
 using System.Net.Sockets;
 using System.Text;
@@ -15,15 +16,15 @@ namespace BlockShare.BlockSharing.BlockShareTypes.BlockShareCommands
 
         public override BlockShareCommandType CommandType => BlockShareCommandType.SetFileDigest;
 
-        public override void WriteValuesToClient(TcpClient tcpClient, NetStat netStat)
+        public override void WriteValuesToClient(Stream networkStream, NetStat netStat)
         {
-            NetUtils.WriteNetSerializable(FileDigest, tcpClient, netStat);
+            NetUtils.WriteNetSerializable(FileDigest, networkStream, netStat);
         }
 
-        protected override void ReadValuesFromClient(TcpClient tcpClient, NetStat netStat, long timeout)
+        protected override void ReadValuesFromClient(Stream networkStream, NetStat netStat, long timeout)
         {
             FileDigest = new FileDigest();
-            NetUtils.ReadNetSerializable(FileDigest, tcpClient, netStat, timeout);
+            NetUtils.ReadNetSerializable(FileDigest, networkStream, netStat, timeout);
         }
 
         public override string ToString()

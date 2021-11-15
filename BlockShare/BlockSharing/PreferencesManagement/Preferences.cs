@@ -26,6 +26,14 @@ namespace BlockShare.BlockSharing.PreferencesManagement
 
         public bool UseHashLists { get; set; } = false;
 
+        public SecurityPreferences SecurityPreferences { get; set; } = new SecurityPreferences(SecurityMethod.Tls)
+        {
+            CertificateAuthorityPath = ".security/ca.crt",
+            ServerCertificatePath = ".security/server.crt",
+            ClientCertificatePath = ".security/client.crt",
+            AcceptedCertificatesDirectoryPath = ".security/.accepted-certificates"
+        };
+
 #if DEBUG
         public int Verbosity { get; set; } = 3;
 #else

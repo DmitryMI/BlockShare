@@ -71,13 +71,13 @@ namespace BlockShare.BlockSharing
             }
         }
 
-        public static void ReadPackage(TcpClient tcpClient, Stream stream, byte[] package, int offset, int length, long timeoutMillis)
+        public static void ReadPackage(Stream stream, byte[] package, int offset, int length, long timeoutMillis)
         {
             //Console.WriteLine($"[UTILS] Waiting for package of length: {length}");
             int bytesRead = 0;
             Stopwatch sw = new Stopwatch();
             sw.Start();
-            while (bytesRead < length && tcpClient.Connected)
+            while (bytesRead < length)
             {
                 int stepOffset = offset + bytesRead;
                 int stepLength = length - bytesRead;
@@ -95,12 +95,6 @@ namespace BlockShare.BlockSharing
                 }
             }
             sw.Stop();
-            //Console.WriteLine($"[UTILS] Package received");
-
-            if(!tcpClient.Connected)
-            {
-                throw new ClientDisconnectedException();
-            }
         }        
 
         public static string PrintHex(byte[] array, int offset, int length)

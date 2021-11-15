@@ -38,27 +38,24 @@ namespace BlockShare.BlockSharing.BlockShareTypes
             }
         }
 
-        protected abstract void ReadValuesFromClient(TcpClient tcpClient, NetStat netStat, long timeout);
+        protected abstract void ReadValuesFromClient(Stream networkStream, NetStat netStat, long timeout);
 
-        public abstract void WriteValuesToClient(TcpClient tcpClient, NetStat netStat);
+        public abstract void WriteValuesToClient(Stream networkStream, NetStat netStat);
                         
 
-        public static void WriteToClient(BlockShareCommand command, TcpClient tcpClient, NetStat netStat, ILogger logger = null)
+        public static void WriteToClient(BlockShareCommand command, Stream networkStream, NetStat netStat, ILogger logger = null)
         {
-            NetworkStream networkStream = tcpClient.GetStream();
-
             byte[] commandTypeBytes = new byte[1];
             commandTypeBytes[0] = (byte)command.CommandType;
             networkStream.Write(commandTypeBytes, 0, commandTypeBytes.Length);
-            command.WriteValuesToClient(tcpClient, netStat);
+            command.WriteValuesToClient(networkStream, netStat);
             logger?.Log($"--> {command}");
         }
 
-        public static T ReadFromClient<T>(TcpClient tcpClient, NetStat netStat, long timeout, Preferences preferences = null, ILogger logger = null) where T : BlockShareCommand
-        {            
-            NetworkStream networkStream = tcpClient.GetStream();
+        public static T ReadFromClient<T>(Stream networkStream, NetStat netStat, long timeout, Preferences preferences = null, ILogger logger = null) where T : BlockShareCommand
+        {                      
             byte[] commandTypeBytes = new byte[1];
-            Utils.ReadPackage(tcpClient, networkStream, commandTypeBytes, 0, commandTypeBytes.Length, timeout);
+            Utils.ReadPackage(networkStream, commandTypeBytes, 0, commandTypeBytes.Length, timeout);
             BlockShareCommandType commandType = (BlockShareCommandType)commandTypeBytes[0];
 
             T command = Activator.CreateInstance<T>();           
@@ -67,18 +64,17 @@ namespace BlockShare.BlockSharing.BlockShareTypes
                 throw new CommandUnexpectedException(command.CommandType, commandType);
             }
             command.Preferences = preferences;
-            command.ReadValuesFromClient(tcpClient, netStat, timeout);
+            command.ReadValuesFromClient(networkStream, netStat, timeout);
 
             logger?.Log($"<-- {command}");
 
             return command;
         }
 
-        public static BlockShareCommand ReadFromClient(TcpClient tcpClient, NetStat netStat, long timeout)
+        public static BlockShareCommand ReadFromClient(Stream networkStream, NetStat netStat, long timeout)
         {
-            NetworkStream networkStream = tcpClient.GetStream();
             byte[] commandTypeBytes = new byte[1];
-            Utils.ReadPackage(tcpClient, networkStream, commandTypeBytes, 0, commandTypeBytes.Length, timeout);
+            Utils.ReadPackage(networkStream, commandTypeBytes, 0, commandTypeBytes.Length, timeout);
             BlockShareCommandType commandType = (BlockShareCommandType)commandTypeBytes[0];
 
             BlockShareCommand command = null;
@@ -153,7 +149,7 @@ namespace BlockShare.BlockSharing.BlockShareTypes
             }
 #endif
 
-            command.ReadValuesFromClient(tcpClient, netStat, timeout);
+            command.ReadValuesFromClient(networkStream, netStat, timeout);
             Console.WriteLine($"<-- {command}");
             return command;
         }

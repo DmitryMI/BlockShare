@@ -1,6 +1,7 @@
 ﻿using BlockShare.BlockSharing.NetworkStatistics;
 using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
 using System.Net.Sockets;
 using System.Text;
@@ -23,32 +24,30 @@ namespace BlockShare.BlockSharing.BlockShareTypes.BlockShareCommands
         {
         }
 
-        protected static FileSystemEntryType ReadEntryType(TcpClient tcpClient, NetStat netStat, long timeout)
+        protected static FileSystemEntryType ReadEntryType(Stream networkStream, NetStat netStat, long timeout)
         {
-            NetworkStream networkStream = tcpClient.GetStream();
             byte[] valueBytes = new byte[1];
-            Utils.ReadPackage(tcpClient, networkStream, valueBytes, 0, valueBytes.Length, timeout);
+            Utils.ReadPackage(networkStream, valueBytes, 0, valueBytes.Length, timeout);
             netStat.TotalReceived += (ulong)valueBytes.Length;
             FileSystemEntryType result = (FileSystemEntryType)valueBytes[0];
             return result;
         }
 
-        protected static void WriteEntryType(FileSystemEntryType value, TcpClient tcpClient, NetStat netStat)
+        protected static void WriteEntryType(FileSystemEntryType value, Stream networkStream, NetStat netStat)
         {
-            NetworkStream networkStream = tcpClient.GetStream();
             byte[] valueBytes = new byte[] { (byte)value };
             networkStream.Write(valueBytes, 0, valueBytes.Length);
             netStat.TotalSent += (ulong)valueBytes.Length;
         }
 
-        public override void WriteValuesToClient(TcpClient tcpClient, NetStat netStat)
+        public override void WriteValuesToClient(Stream networkStream, NetStat netStat)
         {
-            WriteEntryType(EntryType, tcpClient, netStat);
+            WriteEntryType(EntryType, networkStream, netStat);
         }
 
-        protected override void ReadValuesFromClient(TcpClient tcpClient, NetStat netStat, long timeout)
+        protected override void ReadValuesFromClient(Stream networkStream, NetStat netStat, long timeout)
         {
-            EntryType = ReadEntryType(tcpClient, netStat, timeout);
+            EntryType = ReadEntryType(networkStream, netStat, timeout);
         }
 
         public override string ToString()

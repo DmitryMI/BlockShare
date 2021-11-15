@@ -1,6 +1,7 @@
 ﻿using BlockShare.BlockSharing.NetworkStatistics;
 using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
 using System.Net.Sockets;
 using System.Text;
@@ -10,8 +11,8 @@ namespace BlockShare.BlockSharing.BlockShareTypes
 {
     public interface INetSerializable
     {
-        void WriteToClient(TcpClient tcpClient, NetStat netStat);
+        void WriteToClient(Stream networkStream, NetStat netStat);
 
-        void ReadFromClient(TcpClient tcpClient, NetStat netStat, long timeout);
+        void ReadFromClient(Stream networkStream, NetStat netStat, long timeout);
     }
 }

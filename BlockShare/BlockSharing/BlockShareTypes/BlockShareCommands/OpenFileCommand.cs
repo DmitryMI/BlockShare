@@ -1,6 +1,7 @@
 ﻿using BlockShare.BlockSharing.NetworkStatistics;
 using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
 using System.Net.Sockets;
 using System.Text;
@@ -23,14 +24,14 @@ namespace BlockShare.BlockSharing.BlockShareTypes.BlockShareCommands
             Path = path;
         }
 
-        public override void WriteValuesToClient(TcpClient tcpClient, NetStat netStat)
+        public override void WriteValuesToClient(Stream networkStream, NetStat netStat)
         {
-            NetUtils.WriteString(Path, tcpClient, netStat);
+            NetUtils.WriteString(Path, networkStream, netStat);
         }
 
-        protected override void ReadValuesFromClient(TcpClient tcpClient, NetStat netStat, long timeout)
+        protected override void ReadValuesFromClient(Stream networkStream, NetStat netStat, long timeout)
         {
-            Path = NetUtils.ReadString(tcpClient, netStat, timeout);
+            Path = NetUtils.ReadString(networkStream, netStat, timeout);
         }
 
         public override string ToString()

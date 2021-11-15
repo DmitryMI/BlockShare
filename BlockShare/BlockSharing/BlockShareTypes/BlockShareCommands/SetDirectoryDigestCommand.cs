@@ -1,6 +1,7 @@
 ﻿using BlockShare.BlockSharing.NetworkStatistics;
 using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
 using System.Net.Sockets;
 using System.Text;
@@ -19,14 +20,14 @@ namespace BlockShare.BlockSharing.BlockShareTypes.BlockShareCommands
 
         }
 
-        public override void WriteValuesToClient(TcpClient tcpClient, NetStat netStat)
+        public override void WriteValuesToClient(Stream networkStream, NetStat netStat)
         {
-            NetUtils.WriteString(XmlPayload, tcpClient, netStat);
+            NetUtils.WriteString(XmlPayload, networkStream, netStat);
         }
 
-        protected override void ReadValuesFromClient(TcpClient tcpClient, NetStat netStat, long timeout)
+        protected override void ReadValuesFromClient(Stream networkStream, NetStat netStat, long timeout)
         {
-            XmlPayload = NetUtils.ReadString(tcpClient, netStat, timeout);
+            XmlPayload = NetUtils.ReadString(networkStream, netStat, timeout);
         }
 
         public override string ToString()
