@@ -168,27 +168,20 @@ namespace BlockShare.BlockSharing.PreferencesManagement
             {
                 string strValue = null;
                 CommandLineAliasAttribute aliasAttribute = propertyInfo.GetCustomAttribute<CommandLineAliasAttribute>();
-                try
-                {
-                    strValue = GetValueFromArgs(aliasAttribute, args);
-                }
-                catch (ArgumentOutOfRangeException ex)
-                {
-                    throw;
-                }
+
+                strValue = GetValueFromArgs(aliasAttribute, args);
 
                 if (strValue == null)
                 {
                     continue;
                 }
 
-
                 if (IsBasicType(propertyInfo.PropertyType))
-                {                   
+                {
                     object value = DeserializeBasicType(strValue, propertyInfo.PropertyType);
                     propertyInfo.SetValue(preferences, value);
                 }
-                else if(IsPreferencesSerializable(propertyInfo.PropertyType))
+                else if (IsPreferencesSerializable(propertyInfo.PropertyType))
                 {
                     throw new NotImplementedException("PreferencesSerializable types can not be deserialized from command line");
                 }
@@ -196,7 +189,6 @@ namespace BlockShare.BlockSharing.PreferencesManagement
                 {
                     throw new NotImplementedException("Complex types can not be deserialized from command line");
                 }
-
             }
         }
     }
