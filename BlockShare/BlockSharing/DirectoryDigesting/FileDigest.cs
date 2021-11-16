@@ -100,7 +100,7 @@ namespace BlockShare.BlockSharing.DirectoryDigesting
             return fileElement;
         }
 
-        public void WriteToClient(TcpClient tcpClient, NetStat netStat)
+        public void WriteToClient(Stream networkStream, NetStat netStat)
         {
             XmlDocument doc = new XmlDocument();
             XmlDeclaration xmlDeclaration = doc.CreateXmlDeclaration("1.0", "UTF-8", null);
@@ -114,12 +114,12 @@ namespace BlockShare.BlockSharing.DirectoryDigesting
             doc.WriteTo(tx);
             string xmlString = sw.ToString();
 
-            NetUtils.WriteString(xmlString, tcpClient, netStat);
+            NetUtils.WriteString(xmlString, networkStream, netStat);
         }
 
-        public void ReadFromClient(TcpClient tcpClient, NetStat netStat, long timeout)
+        public void ReadFromClient(Stream networkStream, NetStat netStat, long timeout)
         {
-            string xmlString = NetUtils.ReadString(tcpClient, netStat, timeout);
+            string xmlString = NetUtils.ReadString(networkStream, netStat, timeout);
             XmlDocument xmlDocument = new XmlDocument();
             xmlDocument.LoadXml(xmlString);
             XmlElement fileDigest = xmlDocument["FileDigest"];

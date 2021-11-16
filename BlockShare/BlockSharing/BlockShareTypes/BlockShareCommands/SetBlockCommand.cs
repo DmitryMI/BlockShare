@@ -1,6 +1,7 @@
 ﻿using BlockShare.BlockSharing.NetworkStatistics;
 using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
 using System.Net.Sockets;
 using System.Text;
@@ -27,23 +28,23 @@ namespace BlockShare.BlockSharing.BlockShareTypes.BlockShareCommands
             Block = block;            
         }
 
-        public override void WriteValuesToClient(TcpClient tcpClient, NetStat netStat)
+        public override void WriteValuesToClient(Stream networkStream, NetStat netStat)
         {
             //NetUtils.WriteBytesFixed(Block, 0, (int)Preferences.BlockSize, tcpClient, netStat);
 
-            NetUtils.WriteString(Path, tcpClient, netStat);
-            NetUtils.WriteLong(BlockIndex, tcpClient, netStat);
-            NetUtils.WriteBytes(Block, tcpClient, netStat);
+            NetUtils.WriteString(Path, networkStream, netStat);
+            NetUtils.WriteLong(BlockIndex, networkStream, netStat);
+            NetUtils.WriteBytes(Block, networkStream, netStat);
 
             netStat.Payload += (ulong)Preferences.BlockSize;
         }
 
-        protected override void ReadValuesFromClient(TcpClient tcpClient, NetStat netStat, long timeout)
+        protected override void ReadValuesFromClient(Stream networkStream, NetStat netStat, long timeout)
         {
             //Block = NetUtils.ReadBytesFixed((int)Preferences.BlockSize, tcpClient, netStat, timeout);
-            Path = NetUtils.ReadString(tcpClient, netStat, timeout);
-            BlockIndex = NetUtils.ReadLong(tcpClient, netStat, timeout);
-            Block = NetUtils.ReadBytes(tcpClient, netStat, timeout);
+            Path = NetUtils.ReadString(networkStream, netStat, timeout);
+            BlockIndex = NetUtils.ReadLong(networkStream, netStat, timeout);
+            Block = NetUtils.ReadBytes(networkStream, netStat, timeout);
             netStat.Payload += (ulong)Block.Length;
         }
 

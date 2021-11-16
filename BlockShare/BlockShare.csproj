@@ -133,6 +133,8 @@
     <Compile Include="BlockSharing\NetworkStatistics\NetStat.cs" />
     <Compile Include="BlockSharing\PreferencesManagement\Preferences.cs" />
     <Compile Include="BlockSharing\PreferencesManagement\PreferencesManager.cs" />
+    <Compile Include="BlockSharing\PreferencesManagement\SecurityMethod.cs" />
+    <Compile Include="BlockSharing\PreferencesManagement\SecurityPreferences.cs" />
     <Compile Include="BlockSharing\Utils.cs" />
     <Compile Include="Program.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />

@@ -3,7 +3,11 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Net;
+using System.Net.Security;
 using System.Net.Sockets;
+using System.Security.Authentication;
+using System.Security.Cryptography;
+using System.Security.Cryptography.X509Certificates;
 using System.Text;
 using System.Threading.Tasks;
 using BlockShare.BlockSharing.BlockShareTypes;
@@ -22,6 +26,8 @@ namespace BlockShare.BlockSharing
         private Preferences preferences;
 
         private IPEndPoint localEndpoint;
+
+        private List<X509Certificate> acceptableCertificates = new List<X509Certificate>();
 
         public ILogger Logger { get; set; }
 
@@ -71,6 +77,8 @@ namespace BlockShare.BlockSharing
             this.preferences = preferences;
             Logger = logger;
             localEndpoint = new IPEndPoint(IPAddress.Parse(ip), port);
+
+            InitializeCertificates();
         }
 
         public BlockShareServer(Preferences preferences, ILogger logger)
@@ -78,7 +86,19 @@ namespace BlockShare.BlockSharing
             this.preferences = preferences;
             Logger = logger;
             localEndpoint = new IPEndPoint(IPAddress.Parse(preferences.ServerIp), preferences.ServerPort);
+
+            InitializeCertificates();
         }
+
+        private void InitializeCertificates()
+        {
+            if(preferences?.SecurityPreferences?.AcceptedCertificatesDirectoryPath != null)
+            {
+                string path = preferences.SecurityPreferences.AcceptedCertificatesDirectoryPath;
+                acceptableCertificates.AddRange(Utils.GetCertificates(path));
+            }
+        }
+
 
         public void StartServer()
         {
@@ -110,15 +130,15 @@ namespace BlockShare.BlockSharing
             OnServerStopped?.Invoke(this);
         }
 
-        private void NetworkWrite(NetworkStream stream, byte[] data, int offset, int length)
+        private void NetworkWrite(Stream stream, byte[] data, int offset, int length)
         {
             stream.Write(data, offset, length);
             serverNetStat.TotalSent += (ulong) length;
         }
 
-        private void NetworkRead(TcpClient tcpClient, NetworkStream stream, byte[] data, int offset, int length, long timeout)
+        private void NetworkRead(Stream stream, byte[] data, int offset, int length, long timeout)
         {
-            Utils.ReadPackage(tcpClient, stream, data, offset, length, timeout);
+            Utils.ReadPackage(stream, data, offset, length, timeout);
             serverNetStat.TotalReceived += (ulong) length;
         }
 
@@ -220,26 +240,6 @@ namespace BlockShare.BlockSharing
             }
         }
 
-        public string ReadString(TcpClient tcpClient, long timeout)
-        {
-            NetworkStream networkStream = tcpClient.GetStream();
-
-            byte[] valueLengthBytes = new byte[sizeof(int)];
-
-            NetworkRead(tcpClient, networkStream, valueLengthBytes, 0, sizeof(int), timeout);
-            int valueLength = BitConverter.ToInt32(valueLengthBytes, 0);
-            byte[] fileNameBytes = new byte[valueLength];
-            NetworkRead(tcpClient, networkStream, fileNameBytes, 0, valueLength, timeout);
-
-            string value = Encoding.UTF8.GetString(fileNameBytes);
-            return value;
-        }
-
-        public void WriteString(TcpClient tcpClient, string value)
-        {
-
-        }
-
         private string GetPath(string relativePath)
         {
             string filePath = string.Empty;
@@ -277,13 +277,11 @@ namespace BlockShare.BlockSharing
         }
 
 
-        private ClientLoopResult ClientLoop(TcpClient tcpClient)
+        private ClientLoopResult ClientLoop(TcpClient tcpClient, Stream networkStream)
         {
-            NetworkStream networkStream = tcpClient.GetStream();
+            //Log($"Waiting for commands from {tcpClient.Client.RemoteEndPoint}...", 1);
 
-            Log($"Waiting for commands from {tcpClient.Client.RemoteEndPoint}...", 1);
-
-            BlockShareCommand command = BlockShareCommand.ReadFromClient(tcpClient, serverNetStat, 0);
+            BlockShareCommand command = BlockShareCommand.ReadFromClient(networkStream, serverNetStat, 0);
 
             switch (command.CommandType)
             {
@@ -299,7 +297,7 @@ namespace BlockShare.BlockSharing
                         Log($"Client request was invalid: {getDirectoryDigestCommand.Path}", 0);
                         //NetworkWrite(networkStream, new byte[] { (byte)BlockShareResponseType.InvalidOperation }, 0, 1);
                         InvalidOperationCommand invalidOperationCommand = new InvalidOperationCommand();
-                        BlockShareCommand.WriteToClient(invalidOperationCommand, tcpClient, serverNetStat);
+                        BlockShareCommand.WriteToClient(invalidOperationCommand, networkStream, serverNetStat);
 
                         return ClientLoopResult.Disconnect;
                     }
@@ -308,7 +306,7 @@ namespace BlockShare.BlockSharing
                     {
                         //NetworkWrite(networkStream, new byte[] { (byte)BlockShareResponseType.InvalidOperation }, 0, 1);
                         InvalidOperationCommand invalidOperationCommand = new InvalidOperationCommand();
-                        BlockShareCommand.WriteToClient(invalidOperationCommand, tcpClient, serverNetStat);
+                        BlockShareCommand.WriteToClient(invalidOperationCommand, networkStream, serverNetStat);
 
                         return ClientLoopResult.Continue;
                     }
@@ -325,7 +323,7 @@ namespace BlockShare.BlockSharing
 
                     SetDirectoryDigestCommand setDirectoryDigestCommand = new SetDirectoryDigestCommand();
                     setDirectoryDigestCommand.XmlPayload = xmlDigest;
-                    BlockShareCommand.WriteToClient(setDirectoryDigestCommand, tcpClient, serverNetStat);
+                    BlockShareCommand.WriteToClient(setDirectoryDigestCommand, networkStream, serverNetStat);
 
                     //NetworkWrite(networkStream, digestLengthBytes, 0, digestLengthBytes.Length);
 
@@ -339,7 +337,7 @@ namespace BlockShare.BlockSharing
                     if (!CheckRequestValidity(getHashlistPath))
                     {
                         InvalidOperationCommand invalidOperationCommand = new InvalidOperationCommand();
-                        BlockShareCommand.WriteToClient(invalidOperationCommand, tcpClient, serverNetStat);
+                        BlockShareCommand.WriteToClient(invalidOperationCommand, networkStream, serverNetStat);
 
                         return ClientLoopResult.Continue;
                     }
@@ -358,7 +356,7 @@ namespace BlockShare.BlockSharing
                         if (!File.Exists(fileHashListPath))
                         {
                             Log(
-                                $"Calculating hash list for file {getHashlistPath} by request of {tcpClient.Client.RemoteEndPoint}...", 2);
+                                $"Calculating hash list for file {getHashlistPath}...", 2);
                             hashList = FileHashListGenerator.GenerateHashList(fileStream, null, preferences,
                                 OnHashListGeneratorProgress, OnHashListGeneratorFinished);
                             hashListSerialized = hashList.Serialize();
@@ -371,7 +369,7 @@ namespace BlockShare.BlockSharing
                         else
                         {
                             Log(
-                                $"Reading hash list of file {getHashlistPath} by request of {tcpClient.Client.RemoteEndPoint}...", 2);
+                                $"Reading hash list of file {getHashlistPath}...", 2);
                             using (FileStream fileHashListStream =
                                 new FileStream(fileHashListPath, FileMode.Open, FileAccess.Read))
                             {
@@ -383,9 +381,9 @@ namespace BlockShare.BlockSharing
                         SetHashlistCommand setHashlistCommand = new SetHashlistCommand();
                         setHashlistCommand.FileLength = fileStream.Length;
                         setHashlistCommand.HashlistSerialized = hashListSerialized;
-                        BlockShareCommand.WriteToClient(setHashlistCommand, tcpClient, serverNetStat);
+                        BlockShareCommand.WriteToClient(setHashlistCommand, networkStream, serverNetStat);
 
-                        Log($"Hash list for file {getHashlistPath} sent to {tcpClient.Client.RemoteEndPoint}.", 1);
+                        Log($"Hash list for file {getHashlistPath} sent", 1);
                     }
                     return ClientLoopResult.Continue;
 
@@ -446,25 +444,25 @@ namespace BlockShare.BlockSharing
                         Log($"Client request was invalid: {getEntryTypeCommand.Path}", 0);
                         //NetworkWrite(networkStream, new byte[] { (byte)BlockShareCommandType.Ok, (byte)FileSystemEntryType.NonExistent }, 0, 2);
                         SetEntryTypeCommand setEntryTypeCommand = new SetEntryTypeCommand(FileSystemEntryType.NonExistent);
-                        BlockShareCommand.WriteToClient(setEntryTypeCommand, tcpClient, serverNetStat);
+                        BlockShareCommand.WriteToClient(setEntryTypeCommand, networkStream, serverNetStat);
                     }
                     else if (Directory.Exists(getEntryTypePath))
                     {
                         //NetworkWrite(networkStream, new byte[] { (byte)BlockShareCommandType.Ok, (byte)FileSystemEntryType.Directory }, 0, 2);
                         SetEntryTypeCommand setEntryTypeCommand = new SetEntryTypeCommand(FileSystemEntryType.Directory);
-                        BlockShareCommand.WriteToClient(setEntryTypeCommand, tcpClient, serverNetStat);
+                        BlockShareCommand.WriteToClient(setEntryTypeCommand, networkStream, serverNetStat);
                     }
                     else if (File.Exists(getEntryTypePath))
                     {
                         //NetworkWrite(networkStream, new byte[] { (byte)BlockShareCommandType.Ok, (byte)FileSystemEntryType.File }, 0, 2);
                         SetEntryTypeCommand setEntryTypeCommand = new SetEntryTypeCommand(FileSystemEntryType.File);
-                        BlockShareCommand.WriteToClient(setEntryTypeCommand, tcpClient, serverNetStat);
+                        BlockShareCommand.WriteToClient(setEntryTypeCommand, networkStream, serverNetStat);
                     }
                     else
                     {
                         //NetworkWrite(networkStream, new byte[] { (byte)BlockShareCommandType.Ok, (byte)FileSystemEntryType.NonExistent }, 0, 2);
                         SetEntryTypeCommand setEntryTypeCommand = new SetEntryTypeCommand(FileSystemEntryType.NonExistent);
-                        BlockShareCommand.WriteToClient(setEntryTypeCommand, tcpClient, serverNetStat);
+                        BlockShareCommand.WriteToClient(setEntryTypeCommand, networkStream, serverNetStat);
                     }
                     return ClientLoopResult.Continue;
 
@@ -483,7 +481,7 @@ namespace BlockShare.BlockSharing
                     if(invalidRequest)
                     {
                         InvalidOperationCommand invalidOperationCommand = new InvalidOperationCommand();
-                        BlockShareCommand.WriteToClient(invalidOperationCommand, tcpClient, serverNetStat);
+                        BlockShareCommand.WriteToClient(invalidOperationCommand, networkStream, serverNetStat);
                         return ClientLoopResult.Continue;
                     }
 
@@ -493,7 +491,7 @@ namespace BlockShare.BlockSharing
                     FileDigest fileDigest = new FileDigest(getFileInfoCommand.Path, path);
                     setFileDigestCommand.FileDigest = fileDigest;
 
-                    BlockShareCommand.WriteToClient(setFileDigestCommand, tcpClient, serverNetStat);
+                    BlockShareCommand.WriteToClient(setFileDigestCommand, networkStream, serverNetStat);
 
                     return ClientLoopResult.Continue;
             }
@@ -501,11 +499,132 @@ namespace BlockShare.BlockSharing
             return ClientLoopResult.Disconnect;
         }
 
-       
+        private bool ValidateClientCertificate(
+            object sender,
+            X509Certificate certificate,
+            X509Chain chain,
+            SslPolicyErrors sslPolicyErrors)
+        {
+            if (sslPolicyErrors == SslPolicyErrors.None)
+            {
+                return true;
+            }
+
+            if(certificate == null)
+            {
+                Log("No certificate was provided", 0);
+                return false;
+            }
+
+            foreach(X509Certificate acceptedCert in acceptableCertificates)
+            {                
+                if(Utils.CompareBytes(acceptedCert.GetCertHash(), certificate.GetCertHash()))
+                {
+                    return true;
+                }
+            }
+            
+            Log($"Server certificate validation error: {sslPolicyErrors}", 0);
+            return false;
+        }
+
+        private void LogSecurityInfo(SslStream stream)
+        {
+            Log(String.Format("Cipher: {0} strength {1}", stream.CipherAlgorithm, stream.CipherStrength), 0);
+            Log(String.Format("Hash: {0} strength {1}", stream.HashAlgorithm, stream.HashStrength), 0);
+            Log(String.Format("Key exchange: {0} strength {1}", stream.KeyExchangeAlgorithm, stream.KeyExchangeStrength), 0);
+            Log(String.Format("Protocol: {0}", stream.SslProtocol), 0);
+
+            Log(String.Format("Is authenticated: {0} as server? {1}", stream.IsAuthenticated, stream.IsServer), 0);
+            Log(String.Format("IsSigned: {0}", stream.IsSigned), 0);
+            Log(String.Format("Is Encrypted: {0}", stream.IsEncrypted), 0);
+
+            Log(String.Format("Can read: {0}, write {1}", stream.CanRead, stream.CanWrite), 0);
+            Log(String.Format("Can timeout: {0}", stream.CanTimeout), 0);
+
+            Log(String.Format("Certificate revocation list checked: {0}", stream.CheckCertRevocationStatus), 0);
+
+            X509Certificate localCertificate = stream.LocalCertificate;
+            if (stream.LocalCertificate != null)
+            {
+                Log(String.Format("Local cert was issued to {0} and is valid from {1} until {2}.",
+                    localCertificate.Subject,
+                    localCertificate.GetEffectiveDateString(),
+                    localCertificate.GetExpirationDateString()), 0);
+            }
+            else
+            {
+                Log(String.Format("Local certificate is null."), 0);
+            }
+            // Display the properties of the client's certificate.
+            X509Certificate remoteCertificate = stream.RemoteCertificate;
+            if (stream.RemoteCertificate != null)
+            {
+                Log(String.Format("Remote cert was issued to {0} and is valid from {1} until {2}.",
+                    remoteCertificate.Subject,
+                    remoteCertificate.GetEffectiveDateString(),
+                    remoteCertificate.GetExpirationDateString()), 0);
+            }
+            else
+            {
+                Log(String.Format("Remote certificate is null."), 0);
+            }
+
+        }
+
         private void ClientAcceptedMethod(object clientObj)
         {            
             TcpClient client = (TcpClient) clientObj;
             IPEndPoint clientEndPoint = (IPEndPoint)client.Client.RemoteEndPoint;
+
+            Stream networkStream = null;
+            if (preferences.SecurityPreferences != null && preferences.SecurityPreferences.Method != SecurityMethod.None)
+            {
+                Log($"Using security method: {preferences.SecurityPreferences.Method}", 0);
+
+                //X509Certificate serverCertificate;
+                //serverCertificate = X509Certificate.CreateFromCertFile(preferences.SecurityPreferences.ServerCertificatePath);
+                X509Certificate2 serverCertificate = Utils.CreateFromPkcs12(preferences.SecurityPreferences.ServerCertificatePath);
+
+                SslStream sslStream = new SslStream(
+                    client.GetStream(),
+                    false,
+                    new RemoteCertificateValidationCallback(ValidateClientCertificate),
+                    null,
+                    EncryptionPolicy.RequireEncryption
+                    );
+
+                try
+                {
+                    sslStream.AuthenticateAsServer(serverCertificate, clientCertificateRequired: true, checkCertificateRevocation: true);
+                    LogSecurityInfo(sslStream);
+
+                    //sslStream.ReadTimeout = 60000;
+                    //sslStream.WriteTimeout = 60000;
+
+                    networkStream = sslStream;
+                }
+                catch(AuthenticationException e)
+                {
+                    Log($"Exception: {e.Message}", 0);
+                    if (e.InnerException != null)
+                    {
+                        Log($"Inner exception: {e.InnerException.Message}", 0);
+                    }
+                    Log("Authentication failed - closing the connection.", 0);
+                    sslStream.Close();
+                    client.Close();
+                    return;
+                }
+                
+            }
+            else
+            {
+                Log($"Not security method used", 0);
+
+                networkStream = client.GetStream();
+            }
+            
             using (client)
             {
                 Log($"Client accepted from {clientEndPoint}", 0);
@@ -519,7 +638,7 @@ namespace BlockShare.BlockSharing
                     while (client.Connected)
                     {
                         //ClientLoopOld(client);
-                        ClientLoopResult loopResult = ClientLoop(client);
+                        ClientLoopResult loopResult = ClientLoop(client, networkStream);
                         switch (loopResult)
                         {
                             case ClientLoopResult.Continue:
@@ -531,21 +650,21 @@ namespace BlockShare.BlockSharing
                 }
                 catch (TimeoutException ex)
                 {
-                    Console.WriteLine("Client was timed out: \n" + ex.Message);
+                   Log("Client was timed out: \n" + ex.Message, 0);
 #if DEBUG
-                    Console.WriteLine(ex.StackTrace);
+                   Log(ex.StackTrace, 0);
 #endif
                 }
                 catch(IOException)
                 {
-                    Console.WriteLine("Unexpected IO exception. Client disconnected without invoking Disconnect?");
+                   Log("Unexpected IO exception. Client disconnected without invoking Disconnect?", 0);
                 }
                 catch (Exception ex)
                 {
                     OnUnhandledException?.Invoke(this, ex.Message);
-                    Console.WriteLine(ex.Message);
+                   Log(ex.Message, 0);
 #if DEBUG
-                    Console.WriteLine(ex.StackTrace);
+                   Log(ex.StackTrace, 0);
                     throw ex;
 #endif
                 }

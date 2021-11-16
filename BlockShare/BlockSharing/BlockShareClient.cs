@@ -8,7 +8,10 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Net.Security;
 using System.Net.Sockets;
+using System.Security.Authentication;
+using System.Security.Cryptography.X509Certificates;
 using System.Text;
 using System.Threading.Tasks;
 
@@ -17,6 +20,10 @@ namespace BlockShare.BlockSharing
     class BlockShareClient : IDisposable
     {
         private TcpClient tcpClient;
+
+        private Stream networkStream;
+
+        private List<X509Certificate> acceptableCertificates = new List<X509Certificate>();
 
         private Preferences preferences;
 
@@ -46,6 +53,45 @@ namespace BlockShare.BlockSharing
             }
         }
 
+        private bool ValidateServerCertificate(
+            object sender,
+            X509Certificate certificate,
+            X509Chain chain,
+            SslPolicyErrors sslPolicyErrors)
+        {
+            if(sslPolicyErrors == SslPolicyErrors.None)
+            {
+                return true;
+            }
+
+            if (certificate == null)
+            {
+                Log("No certificate was provided", 0);
+                return false;
+            }
+
+            foreach (X509Certificate acceptedCert in acceptableCertificates)
+            {
+                if (Utils.CompareBytes(acceptedCert.GetCertHash(), certificate.GetCertHash()))
+                {
+                    return true;
+                }
+            }
+
+            Log($"Server certificate validation error: {sslPolicyErrors}", 0);
+            return false;
+        }
+
+        private X509Certificate SelectClientCertificate(
+            object sender,
+            string targetHost,
+            X509CertificateCollection certificateCollection,
+            X509Certificate remoteCertificate,
+            string[] accepableIssuers)
+        {
+            return certificateCollection[0];
+        }
+
         public BlockShareClient(Preferences preferences, ILogger logger)
         {
             this.preferences = preferences;
@@ -57,19 +103,68 @@ namespace BlockShare.BlockSharing
 
             tcpClient.Connect(preferences.ServerIp, preferences.ServerPort);
 
+            if(preferences.SecurityPreferences != null && preferences.SecurityPreferences.Method != SecurityMethod.None)
+            {
+                Log($"Using security method: {preferences.SecurityPreferences.Method}", 0);
+
+                acceptableCertificates.AddRange(Utils.GetCertificates(preferences.SecurityPreferences.AcceptedCertificatesDirectoryPath));
+
+                Log($"Accepted certificates count: {acceptableCertificates.Count}", 0);
+
+                X509Certificate clientCertificate = null;
+                clientCertificate = Utils.CreateFromPkcs12(preferences.SecurityPreferences.ClientCertificatePath);
+
+                Log($"Client certificate: {clientCertificate.GetCertHashString()}", 0);
+
+                X509CertificateCollection clientCertificates = new X509CertificateCollection() { clientCertificate };
+
+                NetworkStream basicStream = tcpClient.GetStream();
+
+                SslStream sslStream = new SslStream(
+                    basicStream,
+                    false,
+                    new RemoteCertificateValidationCallback(ValidateServerCertificate),
+                    new LocalCertificateSelectionCallback(SelectClientCertificate),
+                    EncryptionPolicy.RequireEncryption
+                    );
+                try
+                {
+                    sslStream.AuthenticateAsClient(preferences.SecurityPreferences.ServerName, clientCertificates, true);
+                }
+                catch(AuthenticationException e)
+                {
+                    Log($"Authentication Exception: {e.Message}", 0);
+                    if (e.InnerException != null)
+                    {
+                        Log("Inner exception: {e.InnerException.Message}", 0);
+                    }
+                    Log("Authentication failed - closing the connection.", 0);
+                    tcpClient.Close();
+
+                    throw;
+                }
+
+                networkStream = sslStream;
+            }
+            else
+            {
+                Log("Using no security mechanisms", 0);
+                networkStream = tcpClient.GetStream();
+            }
+
             Log($"Connected to server {preferences.ServerIp} {preferences.ServerPort}", 0);
         }
 
         public DirectoryDigest GetDirectoryDigest(string directory, int recursionLevel = int.MaxValue)
         {
             GetDirectoryDigestCommand getCommand = new GetDirectoryDigestCommand(directory, recursionLevel);
-            BlockShareCommand.WriteToClient(getCommand, tcpClient, clientNetStat);
+            BlockShareCommand.WriteToClient(getCommand, networkStream, clientNetStat);
 
             Log($"Requested digest for [{directory}]", 0);
 
-            //SetEntryTypeCommand setEntryTypeCommand = (SetEntryTypeCommand)BlockShareCommand.ReadFromClient(tcpClient, clientNetStat, 10000);
+            //SetEntryTypeCommand setEntryTypeCommand = (SetEntryTypeCommand)BlockShareCommand.ReadFromClient(networkStream, clientNetStat, 10000);
             SetDirectoryDigestCommand setDirectoryDigestCommand;
-            BlockShareCommand response = BlockShareCommand.ReadFromClient(tcpClient, clientNetStat, 0);
+            BlockShareCommand response = BlockShareCommand.ReadFromClient(networkStream, clientNetStat, 0);
             if(response.CommandType == BlockShareCommandType.InvalidOperation)
             {
                 Log("Server refused to serve this operation", 0);
@@ -91,10 +186,9 @@ namespace BlockShare.BlockSharing
             return directoryDigest;
         }
 
-        private void NetworkRead(TcpClient tcpClient, byte[] data, int offset, int length, long timeout)
+        private void NetworkRead(Stream networkStream, byte[] data, int offset, int length, long timeout)
         {
-            NetworkStream stream = tcpClient.GetStream();
-            Utils.ReadPackage(tcpClient, stream, data, offset, length, timeout);
+            Utils.ReadPackage(networkStream, data, offset, length, timeout);
             clientNetStat.TotalReceived += (ulong)length;
         }
 
@@ -112,7 +206,7 @@ namespace BlockShare.BlockSharing
             OnHashingFinished?.Invoke(this, fileName);
         }
 
-        private void DownloadFileNoHashlist(string fileName, int index, FileDigest fileDigest)
+        private void DownloadFileNoHashlist(Stream networkStream, string fileName, int index, FileDigest fileDigest)
         {
             string localFilePath = Path.Combine(preferences.ClientStoragePath, fileName);
 
@@ -136,9 +230,9 @@ namespace BlockShare.BlockSharing
                 if (fileDigest == null)
                 {
                     GetFileDigestCommand getFileInfoCommand = new GetFileDigestCommand(fileName);
-                    BlockShareCommand.WriteToClient(getFileInfoCommand, tcpClient, clientNetStat);
+                    BlockShareCommand.WriteToClient(getFileInfoCommand, networkStream, clientNetStat);
 
-                    SetFileDigestCommand setFileDigestCommand = BlockShareCommand.ReadFromClient<SetFileDigestCommand>(tcpClient, clientNetStat, 1000);
+                    SetFileDigestCommand setFileDigestCommand = BlockShareCommand.ReadFromClient<SetFileDigestCommand>(networkStream, clientNetStat, 1000);
 
                     fileDigest = setFileDigestCommand.FileDigest;
                 }
@@ -157,7 +251,7 @@ namespace BlockShare.BlockSharing
                     long blocksLeft = blocksCount - downloadStartIndex;
 
                     GetBlockRangeCommand getBlockRangeCommand = new GetBlockRangeCommand(fileName, downloadStartIndex, blocksLeft);
-                    BlockShareCommand.WriteToClient(getBlockRangeCommand, tcpClient, clientNetStat);
+                    BlockShareCommand.WriteToClient(getBlockRangeCommand, networkStream, clientNetStat);
 
                     for (long j = downloadStartIndex; j < downloadStartIndex + blocksLeft; j++)
                     {
@@ -173,7 +267,7 @@ namespace BlockShare.BlockSharing
                             blockSize = (int)bytesLeft;
                         }
 
-                        NetworkRead(tcpClient, blockBytes, 0, blockSize, 0);
+                        NetworkRead(networkStream, blockBytes, 0, blockSize, 0);
                         clientNetStat.Payload += (ulong)blockSize;
 
                         localFileStream.Seek(filePos, SeekOrigin.Begin);
@@ -195,7 +289,7 @@ namespace BlockShare.BlockSharing
             Log($"Downloading finished", 1);
         }
 
-        private void DownloadFileWithHashlist(string fileName, int index, FileDigest fileDigest)
+        private void DownloadFileWithHashlist(Stream networkStream, string fileName, int index, FileDigest fileDigest)
         {
             string localFilePath = Path.Combine(preferences.ClientStoragePath, fileName);
             string localFileHashlistPath = preferences.HashMapper.GetHashpartFile(localFilePath);
@@ -234,9 +328,9 @@ namespace BlockShare.BlockSharing
                 }
 
                 GetHashlistCommand getHashlistCommand = new GetHashlistCommand(fileName);
-                BlockShareCommand.WriteToClient(getHashlistCommand, tcpClient, clientNetStat);
+                BlockShareCommand.WriteToClient(getHashlistCommand, networkStream, clientNetStat);
 
-                SetHashlistCommand setHashlistCommand = BlockShareCommand.ReadFromClient<SetHashlistCommand>(tcpClient, clientNetStat, 0);
+                SetHashlistCommand setHashlistCommand = BlockShareCommand.ReadFromClient<SetHashlistCommand>(networkStream, clientNetStat, 0);
                 FileHashList remoteHashList = FileHashList.Deserialise(setHashlistCommand.HashlistSerialized, null, preferences);
                 Log($"Hashlist blocks count: {remoteHashList.BlocksCount}", 2);
 
@@ -271,7 +365,7 @@ namespace BlockShare.BlockSharing
                         $"Requesting range {requestStartIndex}-{requestStartIndex + requestBlocksNumber}: {remoteBlock}", 1);
  
                     GetBlockRangeCommand getBlockRangeCommand = new GetBlockRangeCommand(fileName, requestStartIndex, requestBlocksNumber);
-                    BlockShareCommand.WriteToClient(getBlockRangeCommand, tcpClient, clientNetStat);
+                    BlockShareCommand.WriteToClient(getBlockRangeCommand, networkStream, clientNetStat);
                     for (int j = requestStartIndex; j < requestStartIndex + requestBlocksNumber; j++)
                     {
                         remoteBlock = remoteHashList[j];
@@ -287,7 +381,7 @@ namespace BlockShare.BlockSharing
                             blockSize = (int)bytesLeft;
                         }
 
-                        NetworkRead(tcpClient, blockBytes, 0, blockSize, 0);
+                        NetworkRead(networkStream, blockBytes, 0, blockSize, 0);
                         clientNetStat.Payload += (ulong)blockSize;
 
                         bool doSaveBlock = false;
@@ -337,25 +431,25 @@ namespace BlockShare.BlockSharing
             Log($"Downloading finished", 0);
         }
 
-        private void DownloadFileInternal(string fileName, int index, FileDigest fileDigest)
+        private void DownloadFileInternal(Stream networkStream, string fileName, int index, FileDigest fileDigest)
         {
             if(preferences.UseHashLists)
             {
-                DownloadFileWithHashlist(fileName, index, fileDigest);
+                DownloadFileWithHashlist(networkStream, fileName, index, fileDigest);
             }
             else
             {
-                DownloadFileNoHashlist(fileName, index, fileDigest);
+                DownloadFileNoHashlist(networkStream, fileName, index, fileDigest);
             }
         }
 
         public void DownloadFile(string entryName)
         {
             GetEntryTypeCommand getEntryTypeCommand = new GetEntryTypeCommand(entryName);
-            BlockShareCommand.WriteToClient(getEntryTypeCommand, tcpClient, clientNetStat);
+            BlockShareCommand.WriteToClient(getEntryTypeCommand, networkStream, clientNetStat);
             Log($"Requested entry {entryName}", 0);
 
-            SetEntryTypeCommand setEntryTypeCommand = BlockShareCommand.ReadFromClient<SetEntryTypeCommand>(tcpClient, clientNetStat, 10000);
+            SetEntryTypeCommand setEntryTypeCommand = BlockShareCommand.ReadFromClient<SetEntryTypeCommand>(networkStream, clientNetStat, 10000);
 
             FileSystemEntryType entryType = setEntryTypeCommand.EntryType;
 
@@ -377,23 +471,23 @@ namespace BlockShare.BlockSharing
             if (entryType == FileSystemEntryType.Directory)
             {
                 GetDirectoryDigestCommand getDirectoryDigestCommand = new GetDirectoryDigestCommand(entryName, int.MaxValue);
-                BlockShareCommand.WriteToClient(getDirectoryDigestCommand, tcpClient, clientNetStat);
+                BlockShareCommand.WriteToClient(getDirectoryDigestCommand, networkStream, clientNetStat);
 
-                SetDirectoryDigestCommand setDirectoryDigestCommand = BlockShareCommand.ReadFromClient<SetDirectoryDigestCommand>(tcpClient, clientNetStat, 0);
+                SetDirectoryDigestCommand setDirectoryDigestCommand = BlockShareCommand.ReadFromClient<SetDirectoryDigestCommand>(networkStream, clientNetStat, 0);
                 DirectoryDigest directoryDigest = DirectoryDigest.FromXmlString(setDirectoryDigestCommand.XmlPayload);
 
                 IReadOnlyList<FileDigest> allFiles = directoryDigest.GetFilesRecursive();
                 Log($"Files to load: {allFiles.Count}", 0);
                 for (var index = 0; index < allFiles.Count; index++)
                 {
-                    DownloadFileInternal(allFiles[index].RelativePath, index, allFiles[index]);
+                    DownloadFileInternal(networkStream, allFiles[index].RelativePath, index, allFiles[index]);
                     OnDownloadingFinished?.Invoke(this, allFiles[index].RelativePath);
                     //downloadProgress?.ReportOverallProgress(this, (double)index / allFiles.Count);
                 }
             }
             else
             {
-                DownloadFileInternal(entryName, 0, null);
+                DownloadFileInternal(networkStream, entryName, 0, null);
             }
 
             OnDownloadingFinished?.Invoke(this, entryName);
@@ -408,7 +502,7 @@ namespace BlockShare.BlockSharing
                 {
                     // TODO: dispose managed state (managed objects)
                     DisconnectCommand disconnectCommand = new DisconnectCommand();
-                    BlockShareCommand.WriteToClient(disconnectCommand, tcpClient, clientNetStat);
+                    //BlockShareCommand.WriteToClient(disconnectCommand, networkStream, clientNetStat);
                     tcpClient.Dispose();
                 }
 

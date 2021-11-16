@@ -4,6 +4,8 @@ using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Net.Sockets;
+using System.Security.Cryptography;
+using System.Security.Cryptography.X509Certificates;
 using System.Text;
 using System.Threading.Tasks;
 using System.Xml;
@@ -71,13 +73,13 @@ namespace BlockShare.BlockSharing
             }
         }
 
-        public static void ReadPackage(TcpClient tcpClient, Stream stream, byte[] package, int offset, int length, long timeoutMillis)
+        public static void ReadPackage(Stream stream, byte[] package, int offset, int length, long timeoutMillis)
         {
             //Console.WriteLine($"[UTILS] Waiting for package of length: {length}");
             int bytesRead = 0;
             Stopwatch sw = new Stopwatch();
             sw.Start();
-            while (bytesRead < length && tcpClient.Connected)
+            while (bytesRead < length)
             {
                 int stepOffset = offset + bytesRead;
                 int stepLength = length - bytesRead;
@@ -95,13 +97,60 @@ namespace BlockShare.BlockSharing
                 }
             }
             sw.Stop();
-            //Console.WriteLine($"[UTILS] Package received");
-
-            if(!tcpClient.Connected)
-            {
-                throw new ClientDisconnectedException();
-            }
         }        
+
+        public static X509Certificate2 CreateFromPkcs12(string pkcs12File)
+        {
+            X509Certificate2 cert = new X509Certificate2(pkcs12File);
+
+            return cert;
+        }
+
+        public static bool CompareBytes(byte[] array1, byte[] array2)
+        {
+            if(array1.Length != array2.Length)
+            {
+                return false;
+            }
+            for (int i = 0; i < array1.Length; i++)
+            {
+                if (array1[i] != array2[i])
+                {
+                    return false;
+                }
+            }
+
+            return true;
+        }
+
+        public static List<X509Certificate> GetCertificates(string path)
+        {
+            List<X509Certificate> certificates = new List<X509Certificate>();
+
+            if (File.Exists(path))
+            {
+                X509Certificate certificate = X509Certificate.CreateFromCertFile(path);
+                certificates.Add(certificate);
+            }
+            else if (Directory.Exists(path))
+            {
+                string[] files = Directory.GetFiles(path, "*.crt");
+                foreach (var file in files)
+                {
+                    X509Certificate certificate = X509Certificate.CreateFromCertFile(file);
+                    certificates.Add(certificate);
+                }
+            }
+
+            return certificates;
+        }
+
+
+        public static bool VerrifyWithCertificateAuthority(X509Certificate2 ca, X509Certificate2 remoteCert)
+        {
+            // TODO Actual verification
+            return false;
+        }
 
         public static string PrintHex(byte[] array, int offset, int length)
         {
