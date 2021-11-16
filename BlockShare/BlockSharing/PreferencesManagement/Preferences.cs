@@ -3,18 +3,24 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
+using BlockShare.BlockSharing.BlockShareTypes;
 using BlockShare.BlockSharing.HashMapping;
 
 namespace BlockShare.BlockSharing.PreferencesManagement
 {
     public class Preferences
     {
+        [CommandLineAlias('m', "mode")]
+        public ModeOfOperation Mode { get; set; } = ModeOfOperation.Server;
+
         public int HashSize { get; set; } = 32;
 
-        public int GetHashSize() => HashSize;
         public long BlockSize { get; set; } = 16 * 1024 * 1024;
 
+        [CommandLineAlias('i', "ip")]
         public string ServerIp { get; set; } = "127.0.0.1";
+
+        [CommandLineAlias('p', "port")]
         public int ServerPort { get; set; } = 9652;
 
         public string ServerStoragePath { get; set; } = "";

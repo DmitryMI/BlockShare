@@ -62,6 +62,17 @@ namespace BlockShare.BlockSharing.PreferencesManagement
             return result;
         }
 
+        private static object DeserializeBasicType(string serializedValue, Type type)
+        {
+            if (type == typeof(string))
+            {
+                return serializedValue;
+            }
+            MethodInfo parser = type.GetMethod("Parse", BindingFlags.Public | BindingFlags.Static, null, new Type[] { typeof(string) }, new ParameterModifier[0]);
+            object result = parser.Invoke(null, new object[] { serializedValue });
+            return result;
+        }
+
         private static T DeserializeBasicType<T>(XmlElement xmlElement)
         {
             Type type = typeof(T);
@@ -120,6 +131,73 @@ namespace BlockShare.BlockSharing.PreferencesManagement
 
             doc.AppendChild(rootElement);
             doc.Save(configFilePath);
+        }
+
+        private static string GetValueFromArgs(CommandLineAliasAttribute aliasAttribute, string[] args)
+        {
+            for(int i = 0; i < args.Length; i++)
+            {
+                string arg = args[i];
+                if (arg[0] == '-' && arg[1] != '-')
+                {
+                    char c = arg[1];
+                    if (aliasAttribute.CharAlias == c)
+                    {
+                        return args[i + 1];
+                    }
+                }
+                else if (arg[1] == '-')
+                {
+                    string strAlias = arg.Substring(2);
+                    if(strAlias == aliasAttribute.StringAlias)
+                    {
+                        return args[i + 1];
+                    }
+                }
+            }
+
+            return null;
+        }
+
+        public static void ParseCommandLine(Preferences preferences, string[] args)
+        {
+            Type type = typeof(Preferences);
+            PropertyInfo[] properties = type.GetProperties();
+
+            foreach (PropertyInfo propertyInfo in properties)
+            {
+                string strValue = null;
+                CommandLineAliasAttribute aliasAttribute = propertyInfo.GetCustomAttribute<CommandLineAliasAttribute>();
+                try
+                {
+                    strValue = GetValueFromArgs(aliasAttribute, args);
+                }
+                catch (ArgumentOutOfRangeException ex)
+                {
+                    throw;
+                }
+
+                if (strValue == null)
+                {
+                    continue;
+                }
+
+
+                if (IsBasicType(propertyInfo.PropertyType))
+                {                   
+                    object value = DeserializeBasicType(strValue, propertyInfo.PropertyType);
+                    propertyInfo.SetValue(preferences, value);
+                }
+                else if(IsPreferencesSerializable(propertyInfo.PropertyType))
+                {
+                    throw new NotImplementedException("PreferencesSerializable types can not be deserialized from command line");
+                }
+                else
+                {
+                    throw new NotImplementedException("Complex types can not be deserialized from command line");
+                }
+
+            }
         }
     }
 }
