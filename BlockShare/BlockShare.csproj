@@ -99,6 +99,7 @@
     <Compile Include="BlockSharing\BlockShareTypes\ClientLoopResult.cs" />
     <Compile Include="BlockSharing\BlockShareTypes\DownloadingProgressEventData.cs" />
     <Compile Include="BlockSharing\BlockShareTypes\INetSerializable.cs" />
+    <Compile Include="BlockSharing\BlockShareTypes\ModeOfOperation.cs" />
     <Compile Include="BlockSharing\Gui\ClientForm.cs">
       <SubType>Form</SubType>
     </Compile>
@@ -112,6 +113,11 @@
       <DependentUpon>RemoteDirectoryViewer.cs</DependentUpon>
     </Compile>
     <Compile Include="BlockSharing\NetworkStatistics\NetStatSpeed.cs" />
+    <Compile Include="BlockSharing\PreferencesManagement\AliasInfo.cs" />
+    <Compile Include="BlockSharing\PreferencesManagement\CommandLineAliasAttribute.cs" />
+    <Compile Include="BlockSharing\PreferencesManagement\Exceptions\CommandLineParsingException.cs" />
+    <Compile Include="BlockSharing\PreferencesManagement\Exceptions\RequiredOptionMissingException.cs" />
+    <Compile Include="BlockSharing\PreferencesManagement\Exceptions\PreferencesParsingException.cs" />
     <Compile Include="BlockSharing\PreferencesManagement\IPreferencesSerializable.cs" />
     <Compile Include="BlockSharing\BlockShareTypes\NetUtils.cs" />
     <Compile Include="BlockSharing\DirectoryDigesting\DirectoryDigest.cs" />

@@ -15,6 +15,8 @@ using BlockShare.BlockSharing.BlockShareTypes;
 using BlockShare.BlockSharing.PreferencesManagement;
 using BlockShare.BlockSharing.NetworkStatistics;
 using BlockShare.BlockSharing.HashLists;
+using System.Reflection;
+using BlockShare.BlockSharing.PreferencesManagement.Exceptions;
 
 namespace BlockShare
 {
@@ -362,15 +364,15 @@ namespace BlockShare
         }
 
 
-        static void StartGui(string mode, Preferences preferences)
+        static void StartGui(ModeOfOperation mode, Preferences preferences)
         {
             Form startupForm = null;
             switch (mode)
             {
-                case "browser":
+                case ModeOfOperation.Browser:
                     
                     break;
-                case "server":
+                case ModeOfOperation.Server:
                     startupForm = new ServerForm(preferences);
                     break;
                 default:
@@ -388,145 +390,109 @@ namespace BlockShare
             Application.Run(startupForm);
         }
 
+        static void PrintHelp()
+        {
+            string version = Assembly.GetExecutingAssembly().GetName().Version.ToString();
+            Console.WriteLine($"BlockShare {version}");
+
+            Console.WriteLine("BlockSharing.exe [OPTIONS] CONFIG");
+
+            Console.WriteLine("Available options:");
+            Console.WriteLine("Short\tLong\tProperty name");
+            foreach (var alias in PreferencesManager.GetCommandLineAliases<Preferences>())
+            {
+                string c = alias.CharAlias != null ? alias.CharAlias.Value.ToString() : "-";
+                string s = alias.StringAlias != null ? alias.StringAlias : "-";
+                Console.WriteLine($"{c}\t{s}\t{alias.PropertyInfo.Name}");
+            }
+        }
+
+
         static void Main(string[] args)
         {
+            if (args.Length == 0 || args.Length % 2 == 0)
+            {
+                PrintHelp();
+                return;
+            }
+
+            if (args.Contains("--help") || args.Contains("-h"))
+            {
+                PrintHelp();
+                return;
+            }
+
             Preferences preferences = new Preferences();
 
-            if(File.Exists("BlockShare.config"))
+            string configPath = args[args.Length - 1];
+            if (!File.Exists(configPath))
             {
-                preferences = PreferencesManager.LoadPreferences("BlockShare.config");
-            }
-            else
-            {
-                PreferencesManager.SavePreferences(preferences, "BlockShare.config");
-            }
-
-            if (args.Length == 0)
-            {
-                Console.WriteLine("[1] BlockSharing.exe dehash <path>");
-                Console.WriteLine("[2] BlockSharing.exe prehash <path>");
-                Console.WriteLine("[3] BlockSharing.exe client <server-ip> <server-port> <storage path> [remote file]");
-                Console.WriteLine("[4] BlockSharing.exe browser <server-ip> <server-port> <storage path> [starting dir]");
-                Console.WriteLine("[5] BlockSharing.exe server <bind-ip> <bind-port> <storage path>");
-                Console.WriteLine("[6] BlockSharing.exe gui browser/server <ip> <storage>");
+                Console.WriteLine($"{configPath}: file not found");
+                string defConfPath = Path.Combine(Environment.CurrentDirectory, "BlockShare.config");
+                PreferencesManager.SavePreferences(preferences, defConfPath);
+                Console.WriteLine($"Default config file generated on {defConfPath}\n");
+                PrintHelp();
                 return;
             }
 
-            string startupDir = AppDomain.CurrentDomain.BaseDirectory;
-            string hashpartStorage = Path.Combine(startupDir, "BlockShare-Hashparts");
-            string hashlistStorage = Path.Combine(startupDir, "BlockShare-Hashlists");
-            HashMapper hashMapper = new ShaHashMapper(hashpartStorage, hashlistStorage);
-
-            string storagePath;
-
-            string mode = args[0];
-            if (mode == "dehash")
+            try
             {
-                 storagePath = args[1];
-                 if (!Directory.Exists(storagePath))
-                 {
+                PreferencesManager.LoadPreferences(preferences, configPath);
+            }
+            catch(RequiredOptionMissingException ex)
+            {
+                Console.WriteLine($"Failed to load preferences: {ex.Message}");
+            }
+
+            PreferencesManager.ParseCommandLine(preferences, args);
+
+            ModeOfOperation mode = preferences.Mode;
+            if (mode == ModeOfOperation.Dehash)
+            {
+                string storagePath = preferences.ServerStoragePath;
+                if (!Directory.Exists(storagePath))
+                {
                     Console.WriteLine($"Directory {storagePath} does not exist");
-                 }
+                }
 
-                 Utils.Dehash(storagePath);
-                 return;
-            }
-
-            if (mode == "prehash")
-            {
-                storagePath = args[1];
-
-                Preferences prehashPreferences = new Preferences();
-                prehashPreferences.ServerStoragePath = storagePath;
-                prehashPreferences.HashMapper = hashMapper;
-
-                Prehash(prehashPreferences);
-
+                Utils.Dehash(storagePath);
                 return;
             }
 
-            string ip;
-            string portStr;
-            string fileName = String.Empty;
-
-            if (mode == "client")
+            if (mode == ModeOfOperation.Prehash)
             {
-                ip = args[1];
-                portStr = args[2];
-                storagePath = args[3];
-
-                if (args.Length == 5)
-                {
-                    fileName = args[4];
-                }
-                else
-                {
-                    Console.Write("File name: ");
-                    fileName = Console.ReadLine();
-                }
-            }
-            else if (mode == "browser")
-            {
-                ip = args[1];
-                portStr = args[2];
-                storagePath = args[3];
-
-                if (args.Length == 5)
-                {
-                    fileName = args[4];
-                }
-            }
-            else if (mode == "server")
-            {
-                ip = args[1];
-                portStr = args[2];
-                storagePath = args[3];
-            }
-            else if(mode == "gui")
-            {
-                ip = args[2];
-                portStr = args[3];
-                storagePath = args[4];
-            }
-            else
-            {
-                Console.WriteLine($"Unknown mode: {mode}");
+                Prehash(preferences);
                 return;
             }
-            
-            
-            preferences.ServerStoragePath = storagePath;
-            preferences.ClientStoragePath = storagePath;
-            preferences.ServerIp = ip;
-            preferences.ServerPort = int.Parse(portStr);
-            preferences.HashMapper = hashMapper;            
-
-            PreferencesManager.SavePreferences(preferences, "BlockShare.config");
 
             ConsoleLogger serverLogger = new ConsoleLogger("[SERVER]");
-            ConsoleLogger clientLogger = new ConsoleLogger("[CLIENT]");            
+            ConsoleLogger clientLogger = new ConsoleLogger("[CLIENT]");
 
-            if (mode == "server")
+            if (preferences.EnableGui)
             {
-                int port = int.Parse(portStr);
-                
-                BlockShareServer server = new BlockShareServer(ip, port, preferences, serverLogger);
-                server.OnHashingProgressChanged += (serverRef, fileNameRef, progress)=>serverLogger.OnHashingProgressChanged(fileNameRef, progress);
+                StartGui(mode, preferences);
+                return;
+            }
+
+            if (mode == ModeOfOperation.Server)
+            {
+                BlockShareServer server = new BlockShareServer(preferences, serverLogger);
+                server.OnHashingProgressChanged += (serverRef, fileNameRef, progress) => serverLogger.OnHashingProgressChanged(fileNameRef, progress);
                 server.OnHashingFinished += (serverRef, fileNameRef) => serverLogger.OnHashingFinished(fileNameRef);
                 server.StartServer();
             }
-            
-            if(mode == "client")
+
+            if (mode == ModeOfOperation.Client)
             {
                 BlockShareClient client = new BlockShareClient(preferences, clientLogger);
                 client.OnHashingProgressChanged += (clientRef, fileNameRef, progress) => clientLogger.OnHashingProgressChanged(fileNameRef, progress);
                 client.OnHashingFinished += (clientRef, fileNameRef) => clientLogger.OnHashingFinished(fileNameRef);
                 client.OnBlockDownloaded += (clientRef, eventData) => clientLogger.OnBlockDownloaded(eventData);
-                client.OnDownloadingFinished += (clientRef, fileNameRef ) => clientLogger.OnDownloadingFinished(fileNameRef);
-                Download(client, preferences, clientLogger, fileName);
+                client.OnDownloadingFinished += (clientRef, fileNameRef) => clientLogger.OnDownloadingFinished(fileNameRef);
+                Download(client, preferences, clientLogger, preferences.ClientStartupPath);
             }
 
-            if (mode == "browser")
+            if (mode == ModeOfOperation.Browser)
             {
                 //BlockShareClientOld client = new BlockShareClientOld(preferences, clientLogger);
                 BlockShareClient client = new BlockShareClient(preferences, clientLogger);
@@ -535,21 +501,17 @@ namespace BlockShare
                 client.OnBlockDownloaded += (clientRef, eventData) => clientLogger.OnBlockDownloaded(eventData);
                 client.OnDownloadingFinished += (clientRef, fileNameRef) => clientLogger.OnDownloadingFinished(fileNameRef);
 
-                Browser(client, preferences, clientLogger, fileName);
+                Browser(client, preferences, clientLogger, preferences.ClientStartupPath);
             }
 
-            if (mode == "gui")
+            if(mode == ModeOfOperation.None)
             {
-                string guiMode = args[1];
-                preferences.ServerIp = ip;
-                preferences.ServerPort = int.Parse(portStr);
-                StartGui(guiMode, preferences);
+                PreferencesManager.SavePreferences(preferences, configPath);
+                return;
             }
-            else
-            {
-                Console.WriteLine("Press any key to close...");
-                Console.ReadKey();
-            }
+
+            Console.WriteLine("Press any key to close...");
+            Console.ReadKey();
         }
     }
 }

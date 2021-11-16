@@ -1,4 +1,5 @@
-﻿using System;
+﻿using BlockShare.BlockSharing.PreferencesManagement.Exceptions;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
@@ -10,10 +11,8 @@ namespace BlockShare.BlockSharing.PreferencesManagement
 {
     public static class PreferencesManager
     {
-        public static Preferences LoadPreferences(string configFilePath)
+        public static void LoadPreferences(Preferences preferences, string configFilePath)
         {
-            Preferences preferences = new Preferences();
-
             XmlDocument doc = new XmlDocument();
             doc.Load(configFilePath);
 
@@ -24,25 +23,38 @@ namespace BlockShare.BlockSharing.PreferencesManagement
 
             foreach (PropertyInfo propertyInfo in properties)
             {
-                if (IsBasicType(propertyInfo.PropertyType))
+                XmlElement xmlElement = rootElement[propertyInfo.Name];
+                if (xmlElement == null)
                 {
-                    XmlElement xmlElement = rootElement[propertyInfo.Name];
+                    throw new RequiredOptionMissingException(configFilePath, propertyInfo.Name);
+                }
+                if (IsBasicType(propertyInfo.PropertyType))
+                {                   
                     object value = DeserializeBasicType(xmlElement, propertyInfo.PropertyType);
                     propertyInfo.SetValue(preferences, value);
                 }
+                else if (IsEnumType(propertyInfo.PropertyType))
+                {                  
+                    object value = DeserializeEnumType(xmlElement.InnerText, propertyInfo.PropertyType);
+                    propertyInfo.SetValue(preferences, value);
+                }
                 else if (IsPreferencesSerializable(propertyInfo.PropertyType))
-                {
-                    XmlElement xmlElement = rootElement[propertyInfo.Name];
+                {                   
                     IPreferencesSerializable serializable = (IPreferencesSerializable)Activator.CreateInstance(propertyInfo.PropertyType);
                     object value = serializable.FromXmlElement(xmlElement);
                     propertyInfo.SetValue(preferences, value);
                 }
             }
-
-            return preferences;
         }
 
         private static XmlElement SerializeBasicType(XmlDocument document, string name, object value)
+        {
+            XmlElement element = document.CreateElement(name);
+            element.InnerText = value.ToString();
+            return element;
+        }
+
+        private static XmlElement SerializeEnumType(XmlDocument document, string name, object value)
         {
             XmlElement element = document.CreateElement(name);
             element.InnerText = value.ToString();
@@ -62,6 +74,17 @@ namespace BlockShare.BlockSharing.PreferencesManagement
             return result;
         }
 
+        private static object DeserializeBasicType(string serializedValue, Type type)
+        {
+            if (type == typeof(string))
+            {
+                return serializedValue;
+            }
+            MethodInfo parser = type.GetMethod("Parse", BindingFlags.Public | BindingFlags.Static, null, new Type[] { typeof(string) }, new ParameterModifier[0]);
+            object result = parser.Invoke(null, new object[] { serializedValue });
+            return result;
+        }
+
         private static T DeserializeBasicType<T>(XmlElement xmlElement)
         {
             Type type = typeof(T);
@@ -76,6 +99,23 @@ namespace BlockShare.BlockSharing.PreferencesManagement
             }
             MethodInfo parser = type.GetMethod("Parse", BindingFlags.Public | BindingFlags.Static, null, new Type[] { typeof(string) }, new ParameterModifier[0]);
             return parser != null;
+        }
+
+        private static bool IsEnumType(Type type)
+        {
+            return type.IsEnum;
+        }
+
+        private static T DeserializeEnumType<T>(string serializedValue) where T:Enum
+        {
+            object value = Enum.Parse(typeof(T), serializedValue);
+            return (T)value;
+        }
+
+        private static object DeserializeEnumType(string serializedValue, Type type)
+        {
+            object value = Enum.Parse(type, serializedValue);
+            return value;
         }
 
         private static bool IsPreferencesSerializable(Type type)
@@ -108,6 +148,12 @@ namespace BlockShare.BlockSharing.PreferencesManagement
                     XmlElement xmlElement = SerializeBasicType(doc, propertyInfo.Name, value);
                     rootElement.AppendChild(xmlElement);
                 }
+                else if(IsEnumType(propertyInfo.PropertyType))
+                {
+                    object value = propertyInfo.GetValue(preferences);
+                    XmlElement xmlElement = SerializeEnumType(doc, propertyInfo.Name, value);
+                    rootElement.AppendChild(xmlElement);
+                }
                 else if(IsPreferencesSerializable(propertyInfo.PropertyType))
                 {
                     object value = propertyInfo.GetValue(preferences);
@@ -120,6 +166,99 @@ namespace BlockShare.BlockSharing.PreferencesManagement
 
             doc.AppendChild(rootElement);
             doc.Save(configFilePath);
+        }
+
+        private static string GetValueFromArgs(CommandLineAliasAttribute aliasAttribute, string[] args)
+        {
+            for(int i = 0; i < args.Length; i++)
+            {
+                string arg = args[i];
+                if(arg.Length < 2)
+                {
+                    continue;
+                    //throw new CommandLineParsingException(arg);
+                }
+                if (arg[0] == '-' && arg[1] != '-')
+                {
+                    char c = arg[1];
+                    if (aliasAttribute.CharAlias == c)
+                    {
+                        return args[i + 1];
+                    }
+                }
+                else if (arg[1] == '-')
+                {
+                    string strAlias = arg.Substring(2);
+                    if(strAlias == aliasAttribute.StringAlias)
+                    {
+                        return args[i + 1];
+                    }
+                }
+            }
+
+            return null;
+        }
+
+        public static List<AliasInfo> GetCommandLineAliases<T>()
+        {
+            Type type = typeof(T);
+            PropertyInfo[] properties = type.GetProperties();
+
+            List<AliasInfo> result = new List<AliasInfo>();
+
+            foreach (PropertyInfo propertyInfo in properties)
+            {
+                CommandLineAliasAttribute aliasAttribute = propertyInfo.GetCustomAttribute<CommandLineAliasAttribute>();
+                if(aliasAttribute == null)
+                {
+                    continue;
+                }
+                AliasInfo aliasInfo = new AliasInfo(aliasAttribute.CharAlias, aliasAttribute.StringAlias, propertyInfo);
+                result.Add(aliasInfo);
+            }
+
+            return result;
+        }
+
+        public static void ParseCommandLine<T>(T preferences, string[] args)
+        {
+            Type type = typeof(T);
+            PropertyInfo[] properties = type.GetProperties();
+
+            foreach (PropertyInfo propertyInfo in properties)
+            {
+                string strValue = null;
+                CommandLineAliasAttribute aliasAttribute = propertyInfo.GetCustomAttribute<CommandLineAliasAttribute>();
+                if(aliasAttribute == null)
+                {
+                    continue;
+                }
+                strValue = GetValueFromArgs(aliasAttribute, args);
+
+                if (strValue == null)
+                {
+                    continue;
+                }
+
+                if (IsBasicType(propertyInfo.PropertyType))
+                {
+                    object value = DeserializeBasicType(strValue, propertyInfo.PropertyType);
+                    propertyInfo.SetValue(preferences, value);
+                }
+                else if (IsEnumType(propertyInfo.PropertyType))
+                {
+                    object value = DeserializeEnumType(strValue, propertyInfo.PropertyType);
+                    propertyInfo.SetValue(preferences, value);
+                }
+                else if (IsPreferencesSerializable(propertyInfo.PropertyType))
+                {
+                    throw new NotImplementedException("PreferencesSerializable types can not be deserialized from command line");
+                }
+                else
+                {
+                    throw new NotImplementedException("Complex types can not be deserialized from command line");
+                }
+            }
         }
     }
 }

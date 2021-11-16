@@ -3,22 +3,37 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
+using BlockShare.BlockSharing.BlockShareTypes;
 using BlockShare.BlockSharing.HashMapping;
 
 namespace BlockShare.BlockSharing.PreferencesManagement
 {
     public class Preferences
     {
+        [CommandLineAlias('m', "mode")]
+        public ModeOfOperation Mode { get; set; } = ModeOfOperation.Server;
+
+        [CommandLineAlias('g', "gui")]
+        public bool EnableGui { get; set; } = false;
+
         public int HashSize { get; set; } = 32;
 
-        public int GetHashSize() => HashSize;
         public long BlockSize { get; set; } = 16 * 1024 * 1024;
 
+        [CommandLineAlias('i', "ip")]
         public string ServerIp { get; set; } = "127.0.0.1";
+
+        [CommandLineAlias('p', "port")]
         public int ServerPort { get; set; } = 9652;
 
-        public string ServerStoragePath { get; set; } = "";
-        public string ClientStoragePath { get; set; } = "";
+        [CommandLineAlias('s', "storage")]
+        public string ServerStoragePath { get; set; } = "ServerStorage";
+
+        [CommandLineAlias('s', "storage")]
+        public string ClientStoragePath { get; set; } = "ClientStorage";
+
+        [CommandLineAlias("startup")]
+        public string ClientStartupPath { get; set; } = ".\\";
 
         public bool CreateMissingStorageDirectories { get; set; } = true;
 
@@ -45,7 +60,7 @@ namespace BlockShare.BlockSharing.PreferencesManagement
         public static string HashlistExtension { get; set; } = ".hashlist";
         public static string HashpartExtension { get; set; } = ".hashpart";
 
-        public HashMapper HashMapper { get; set; } = new ExtensionHashMapper();
+        public HashMapper HashMapper { get; set; } = new ShaHashMapper(".hashparts", ".hashlists");
 
     }
 }

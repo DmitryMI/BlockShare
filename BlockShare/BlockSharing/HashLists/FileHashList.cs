@@ -63,9 +63,9 @@ namespace BlockShare.BlockSharing.HashLists
 
             for(int i = 0; i < blocksCount; i++)
             {
-                byte[] hash = new byte[preferences.GetHashSize()];
+                byte[] hash = new byte[preferences.HashSize];
                 long filePosition = (i * preferences.BlockSize);
-                Array.Copy(serializedHashList, i * preferences.GetHashSize(), hash, 0, preferences.GetHashSize());
+                Array.Copy(serializedHashList, i * preferences.HashSize, hash, 0, preferences.HashSize);
                 list[i] = new FileHashBlock(filePosition, hash);               
             }
 
@@ -79,13 +79,13 @@ namespace BlockShare.BlockSharing.HashLists
 
         public byte[] Serialize()
         {
-            int dataLength = hashBlocks.Length * preferences.GetHashSize();
+            int dataLength = hashBlocks.Length * preferences.HashSize;
             byte[] data = new byte[dataLength];
 
             for(int i = 0; i < hashBlocks.Length; i++)
             {
-                int filePosition = i * preferences.GetHashSize();
-                Array.Copy(hashBlocks[i].Hash, 0, data, filePosition, preferences.GetHashSize());
+                int filePosition = i * preferences.HashSize;
+                Array.Copy(hashBlocks[i].Hash, 0, data, filePosition, preferences.HashSize);
             }
 
             return data;
@@ -100,9 +100,9 @@ namespace BlockShare.BlockSharing.HashLists
                 throw new InvalidOperationException("This hashlist cannot be serialized to dist: SerializationStream is null");
             }
 
-            int streamPosition = block * preferences.GetHashSize();
+            int streamPosition = block * preferences.HashSize;
             serializationStream.Seek(streamPosition, SeekOrigin.Begin);
-            serializationStream.Write(hashBlocks[block].Hash, 0, preferences.GetHashSize());
+            serializationStream.Write(hashBlocks[block].Hash, 0, preferences.HashSize);
             dirtyBlocks[block] = false;
 
             serializationStream.Flush();
@@ -119,9 +119,9 @@ namespace BlockShare.BlockSharing.HashLists
             {
                 if(dirtyBlocks[i])
                 {
-                    int streamPosition = i * preferences.GetHashSize();
+                    int streamPosition = i * preferences.HashSize;
                     serializationStream.Seek(streamPosition, SeekOrigin.Begin);
-                    serializationStream.Write(hashBlocks[i].Hash, 0, preferences.GetHashSize());
+                    serializationStream.Write(hashBlocks[i].Hash, 0, preferences.HashSize);
                     dirtyBlocks[i] = false;
                 }
             }
