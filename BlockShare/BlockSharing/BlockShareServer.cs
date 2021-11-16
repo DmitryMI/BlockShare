@@ -599,8 +599,8 @@ namespace BlockShare.BlockSharing
                     sslStream.AuthenticateAsServer(serverCertificate, clientCertificateRequired: true, checkCertificateRevocation: true);
                     LogSecurityInfo(sslStream);
 
-                    sslStream.ReadTimeout = 60000;
-                    sslStream.WriteTimeout = 60000;
+                    //sslStream.ReadTimeout = 60000;
+                    //sslStream.WriteTimeout = 60000;
 
                     networkStream = sslStream;
                 }
