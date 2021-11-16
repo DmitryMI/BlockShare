@@ -8,6 +8,7 @@ namespace BlockShare.BlockSharing.BlockShareTypes
 {
     public enum ModeOfOperation
     {
+        None,
         Browser,
         Client,
         Server,
