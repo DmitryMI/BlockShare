@@ -50,7 +50,7 @@ namespace BlockShare.BlockSharing
         public event Action<BlockShareServer, string> OnUnhandledException;
 
         public event Action<BlockShareServer, string, double> OnHashingProgressChanged;
-        public event Action<BlockShareServer, string> OnHashingFinished;       
+        public event Action<BlockShareServer, string> OnHashingFinished;
 
         #endregion
 
@@ -92,7 +92,7 @@ namespace BlockShare.BlockSharing
 
         private void InitializeCertificates()
         {
-            if(preferences?.SecurityPreferences?.AcceptedCertificatesDirectoryPath != null)
+            if (preferences?.SecurityPreferences?.AcceptedCertificatesDirectoryPath != null)
             {
                 string path = preferences.SecurityPreferences.AcceptedCertificatesDirectoryPath;
                 acceptableCertificates.AddRange(Utils.GetCertificates(path));
@@ -119,7 +119,7 @@ namespace BlockShare.BlockSharing
             tcpListener.Stop();
             isServerRunning = false;
 
-            foreach(var client in activeClients)
+            foreach (var client in activeClients)
             {
                 client.Close();
             }
@@ -133,13 +133,13 @@ namespace BlockShare.BlockSharing
         private void NetworkWrite(Stream stream, byte[] data, int offset, int length)
         {
             stream.Write(data, offset, length);
-            serverNetStat.TotalSent += (ulong) length;
+            serverNetStat.TotalSent += (ulong)length;
         }
 
         private void NetworkRead(Stream stream, byte[] data, int offset, int length, long timeout)
         {
             Utils.ReadPackage(stream, data, offset, length, timeout);
-            serverNetStat.TotalReceived += (ulong) length;
+            serverNetStat.TotalReceived += (ulong)length;
         }
 
         private void WorkingMethod()
@@ -154,12 +154,12 @@ namespace BlockShare.BlockSharing
                     task.Start();
                 }
             }
-            catch(Exception ex)
+            catch (Exception ex)
             {
                 Log(ex.Message, 0);
             }
         }
-        
+
         private bool CheckRequestValidity(string requestedEntry)
         {
             if (String.IsNullOrWhiteSpace(requestedEntry))
@@ -288,7 +288,7 @@ namespace BlockShare.BlockSharing
                 case BlockShareCommandType.GetDirectoryDigest:
                     GetDirectoryDigestCommand getDirectoryDigestCommand = (GetDirectoryDigestCommand)command;
 
-                    string digestFilePath = GetPath(getDirectoryDigestCommand.Path);                                        
+                    string digestFilePath = GetPath(getDirectoryDigestCommand.Path);
 
                     Log($"Client request received: {digestFilePath}", 0);
 
@@ -396,13 +396,13 @@ namespace BlockShare.BlockSharing
 
                     IPEndPoint clientEp = (IPEndPoint)tcpClient.Client.RemoteEndPoint;
                     OnBlocksRequested?.Invoke(this, clientEp, getBlocksFilePath, getBlockRangeCommand.BlockIndex, getBlockRangeCommand.BlocksCount);
-                    
+
                     if (!CheckRequestValidity(getBlocksFilePath))
                     {
                         // FIXME Shitty method to deal with such request.
                         return ClientLoopResult.Disconnect;
                     }
-                    
+
                     using (FileStream fileStream = new FileStream(getBlocksFilePath, FileMode.Open, FileAccess.Read))
                     {
                         long requestStartIndex = getBlockRangeCommand.BlockIndex;
@@ -470,15 +470,15 @@ namespace BlockShare.BlockSharing
                     GetFileDigestCommand getFileInfoCommand = (GetFileDigestCommand)command;
                     string path = GetPath(getFileInfoCommand.Path);
                     bool invalidRequest = false;
-                    if(!CheckRequestValidity(path))
-                    {                        
-                        invalidRequest = true;
-                    }
-                    else if(!File.Exists(path))
+                    if (!CheckRequestValidity(path))
                     {
                         invalidRequest = true;
                     }
-                    if(invalidRequest)
+                    else if (!File.Exists(path))
+                    {
+                        invalidRequest = true;
+                    }
+                    if (invalidRequest)
                     {
                         InvalidOperationCommand invalidOperationCommand = new InvalidOperationCommand();
                         BlockShareCommand.WriteToClient(invalidOperationCommand, networkStream, serverNetStat);
@@ -510,20 +510,20 @@ namespace BlockShare.BlockSharing
                 return true;
             }
 
-            if(certificate == null)
+            if (certificate == null)
             {
                 Log("No certificate was provided", 0);
                 return false;
             }
 
-            foreach(X509Certificate acceptedCert in acceptableCertificates)
-            {                
-                if(Utils.CompareBytes(acceptedCert.GetCertHash(), certificate.GetCertHash()))
+            foreach (X509Certificate acceptedCert in acceptableCertificates)
+            {
+                if (Utils.CompareBytes(acceptedCert.GetCertHash(), certificate.GetCertHash()))
                 {
                     return true;
                 }
             }
-            
+
             Log($"Server certificate validation error: {sslPolicyErrors}", 0);
             return false;
         }
@@ -573,64 +573,90 @@ namespace BlockShare.BlockSharing
         }
 
         private void ClientAcceptedMethod(object clientObj)
-        {            
-            TcpClient client = (TcpClient) clientObj;
+        {
+            TcpClient client = (TcpClient)clientObj;
             IPEndPoint clientEndPoint = (IPEndPoint)client.Client.RemoteEndPoint;
 
-            Stream networkStream = null;
-            if (preferences.SecurityPreferences != null && preferences.SecurityPreferences.Method != SecurityMethod.None)
-            {
-                Log($"Using security method: {preferences.SecurityPreferences.Method}", 0);
-
-                //X509Certificate serverCertificate;
-                //serverCertificate = X509Certificate.CreateFromCertFile(preferences.SecurityPreferences.ServerCertificatePath);
-                X509Certificate2 serverCertificate = Utils.CreateFromPkcs12(preferences.SecurityPreferences.ServerCertificatePath);
-
-                SslStream sslStream = new SslStream(
-                    client.GetStream(),
-                    false,
-                    new RemoteCertificateValidationCallback(ValidateClientCertificate),
-                    null,
-                    EncryptionPolicy.RequireEncryption
-                    );
-
-                try
-                {
-                    sslStream.AuthenticateAsServer(serverCertificate, clientCertificateRequired: true, checkCertificateRevocation: true);
-                    LogSecurityInfo(sslStream);
-
-                    //sslStream.ReadTimeout = 60000;
-                    //sslStream.WriteTimeout = 60000;
-
-                    networkStream = sslStream;
-                }
-                catch(AuthenticationException e)
-                {
-                    Log($"Exception: {e.Message}", 0);
-                    if (e.InnerException != null)
-                    {
-                        Log($"Inner exception: {e.InnerException.Message}", 0);
-                    }
-                    Log("Authentication failed - closing the connection.", 0);
-                    sslStream.Close();
-                    client.Close();
-                    return;
-                }
-                
-            }
-            else
-            {
-                Log($"Not security method used", 0);
-
-                networkStream = client.GetStream();
-            }
-            
             using (client)
             {
-                Log($"Client accepted from {clientEndPoint}", 0);
-                lock(activeClients)
+
+                Stream networkStream = null;
+                if (preferences.SecurityPreferences != null && preferences.SecurityPreferences.Method != SecurityMethod.None)
                 {
-                    activeClients.Add(client);                    
+                    Log($"Using security method: {preferences.SecurityPreferences.Method}", 0);
+                    X509Certificate2 serverCertificate = null;
+                    try
+                    {
+                        serverCertificate = Utils.CreateFromPkcs12(preferences.SecurityPreferences.ServerCertificatePath);
+                    }
+                    catch(FileNotFoundException ex)
+                    {
+                        Log($"Server Certificate: {ex.Message}", 0);
+                        client.Close();
+                        return;
+                    }
+                    catch(CryptographicException ex)
+                    {
+                        Log($"Failed to load Server Certificate: {ex.Message}", 0);
+                        client.Close();
+                        return;
+                    }
+
+                    SslStream sslStream = new SslStream(
+                        client.GetStream(),
+                        false,
+                        new RemoteCertificateValidationCallback(ValidateClientCertificate),
+                        null,
+                        EncryptionPolicy.RequireEncryption
+                        );
+
+                    try
+                    {
+                        sslStream.AuthenticateAsServer(serverCertificate, clientCertificateRequired: true, checkCertificateRevocation: true);
+                        LogSecurityInfo(sslStream);
+
+                        //sslStream.ReadTimeout = 60000;
+                        //sslStream.WriteTimeout = 60000;
+
+                        networkStream = sslStream;
+                    }
+                    catch (AuthenticationException e)
+                    {
+                        Log($"Exception: {e.Message}", 0);
+                        if (e.InnerException != null)
+                        {
+                            Log($"Inner exception: {e.InnerException.Message}", 0);
+                        }
+                        Log("Authentication failed - closing the connection.", 0);
+                        sslStream.Close();
+                        client.Close();
+                        return;
+                    }
+
+                }
+                else
+                {
+#if !ENSURE_SECURITY
+                    Log($"No security method used", 0);
+                    networkStream = client.GetStream();
+#else
+                    Log($"Server was built with ENSURE_SECURITY. Enable any security method.", 0);
+                    networkStream = null;
+
+                    Log($"Client disconnected", 0);
+                    lock (activeClients)
+                    {
+                        activeClients.Remove(client);
+                    }
+                    client.Close();
+                    return;
+#endif
+                }
+
+                Log($"Client accepted from {clientEndPoint}", 0);
+                lock (activeClients)
+                {
+                    activeClients.Add(client);
                 }
                 OnClientConnected?.Invoke(this, clientEndPoint);
                 try
@@ -643,28 +669,28 @@ namespace BlockShare.BlockSharing
                         {
                             case ClientLoopResult.Continue:
                                 continue;
-                            case ClientLoopResult.Disconnect:                                                             
+                            case ClientLoopResult.Disconnect:
                                 break;
                         }
                     }
                 }
                 catch (TimeoutException ex)
                 {
-                   Log("Client was timed out: \n" + ex.Message, 0);
+                    Log("Client was timed out: \n" + ex.Message, 0);
 #if DEBUG
-                   Log(ex.StackTrace, 0);
+                    Log(ex.StackTrace, 0);
 #endif
                 }
-                catch(IOException)
+                catch (IOException)
                 {
-                   Log("Unexpected IO exception. Client disconnected without invoking Disconnect?", 0);
+                    Log("Unexpected IO exception. Client disconnected without invoking Disconnect?", 0);
                 }
                 catch (Exception ex)
                 {
                     OnUnhandledException?.Invoke(this, ex.Message);
-                   Log(ex.Message, 0);
+                    Log(ex.Message, 0);
 #if DEBUG
-                   Log(ex.StackTrace, 0);
+                    Log(ex.StackTrace, 0);
                     throw ex;
 #endif
                 }
@@ -672,8 +698,8 @@ namespace BlockShare.BlockSharing
                 Log($"Client disconnected", 0);
                 lock (activeClients)
                 {
-                    activeClients.Remove(client);                    
-                }                
+                    activeClients.Remove(client);
+                }
                 OnClientDisconnected?.Invoke(this, clientEndPoint);
                 client.Close();
             }

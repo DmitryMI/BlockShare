@@ -22,23 +22,31 @@ namespace BlockShare.BlockSharing.HashMapping
 
         }
 
-        public ShaHashMapper(string hashpartStoragePath, string hashlistStoragePath)
+        private void EnsureHashpartDirectoryExist()
         {
-            HashpartStoragePath = hashpartStoragePath;
-            HashlistStoragePath = hashlistStoragePath;
-
             if (!Directory.Exists(HashpartStoragePath))
             {
                 Directory.CreateDirectory(HashpartStoragePath);
             }
+        }
+
+        private void EnsureHashlistDirectoryExist()
+        {
             if (!Directory.Exists(HashlistStoragePath))
             {
                 Directory.CreateDirectory(HashlistStoragePath);
             }
         }
 
+        public ShaHashMapper(string hashpartStoragePath, string hashlistStoragePath)
+        {
+            HashpartStoragePath = hashpartStoragePath;
+            HashlistStoragePath = hashlistStoragePath;    
+        }
+
         public override string GetHashpartFile(string filePath)
         {
+            EnsureHashpartDirectoryExist();
             byte[] filePathBytes = Encoding.UTF8.GetBytes(filePath);
             byte[] shaHash = sha.ComputeHash(filePathBytes);
             string base64 = Utils.ToSafeBase64(shaHash);
@@ -49,6 +57,7 @@ namespace BlockShare.BlockSharing.HashMapping
 
         public override string GetHashlistFile(string filePath)
         {
+            EnsureHashlistDirectoryExist();
             byte[] filePathBytes = Encoding.UTF8.GetBytes(filePath);
             byte[] shaHash = sha.ComputeHash(filePathBytes);
             string base64 = Utils.ToSafeBase64(shaHash);
@@ -69,15 +78,6 @@ namespace BlockShare.BlockSharing.HashMapping
         {
             HashpartStoragePath = xmlElement.GetAttribute("HashpartStoragePath");
             HashlistStoragePath = xmlElement.GetAttribute("HashlistStoragePath");
-
-            if (!Directory.Exists(HashpartStoragePath))
-            {
-                Directory.CreateDirectory(HashpartStoragePath);
-            }
-            if (!Directory.Exists(HashlistStoragePath))
-            {
-                Directory.CreateDirectory(HashlistStoragePath);
-            }
 
             return this;
         }

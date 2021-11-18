@@ -12,6 +12,7 @@ Global
 		Debug-Dehash|Any CPU = Debug-Dehash|Any CPU
 		Debug-Server|Any CPU = Debug-Server|Any CPU
 		Release|Any CPU = Release|Any CPU
+		Release-TLS|Any CPU = Release-TLS|Any CPU
 	EndGlobalSection
 	GlobalSection(ProjectConfigurationPlatforms) = postSolution
 		{48394769-F3A1-48B1-8A74-639B5B06CF7B}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
@@ -24,6 +25,8 @@ Global
 		{48394769-F3A1-48B1-8A74-639B5B06CF7B}.Debug-Server|Any CPU.Build.0 = Debug-Server|Any CPU
 		{48394769-F3A1-48B1-8A74-639B5B06CF7B}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{48394769-F3A1-48B1-8A74-639B5B06CF7B}.Release|Any CPU.Build.0 = Release|Any CPU
+		{48394769-F3A1-48B1-8A74-639B5B06CF7B}.Release-TLS|Any CPU.ActiveCfg = Release-TLS|Any CPU
+		{48394769-F3A1-48B1-8A74-639B5B06CF7B}.Release-TLS|Any CPU.Build.0 = Release-TLS|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

@@ -395,11 +395,11 @@ namespace BlockShare
             string version = Assembly.GetExecutingAssembly().GetName().Version.ToString();
             Console.WriteLine($"BlockShare {version}");
 
-            Console.WriteLine("BlockSharing.exe [OPTIONS] CONFIG");
+            Console.WriteLine("BlockShare [OPTIONS] CONFIG");
 
             Console.WriteLine("Available options:");
             Console.WriteLine("Short\tLong\tProperty name");
-            foreach (var alias in PreferencesManager.GetCommandLineAliases<Preferences>())
+            foreach (var alias in PreferencesManager<Preferences>.GetCommandLineAliases())
             {
                 string c = alias.CharAlias != null ? alias.CharAlias.Value.ToString() : "-";
                 string s = alias.StringAlias != null ? alias.StringAlias : "-";
@@ -410,26 +410,26 @@ namespace BlockShare
 
         static void Main(string[] args)
         {
+            PreferencesManager<Preferences> preferencesManager = new PreferencesManager<Preferences>();
+                        
             if (args.Length == 0 || args.Length % 2 == 0)
             {
                 PrintHelp();
                 return;
             }
-
+            
             if (args.Contains("--help") || args.Contains("-h"))
             {
                 PrintHelp();
                 return;
             }
 
-            Preferences preferences = new Preferences();
-
             string configPath = args[args.Length - 1];
             if (!File.Exists(configPath))
             {
                 Console.WriteLine($"{configPath}: file not found");
                 string defConfPath = Path.Combine(Environment.CurrentDirectory, "BlockShare.config");
-                PreferencesManager.SavePreferences(preferences, defConfPath);
+                preferencesManager.SavePreferences(defConfPath);
                 Console.WriteLine($"Default config file generated on {defConfPath}\n");
                 PrintHelp();
                 return;
@@ -437,16 +437,49 @@ namespace BlockShare
 
             try
             {
-                PreferencesManager.LoadPreferences(preferences, configPath);
+                preferencesManager.LoadPreferences(configPath);
             }
             catch(RequiredOptionMissingException ex)
             {
                 Console.WriteLine($"Failed to load preferences: {ex.Message}");
+                return;
             }
 
-            PreferencesManager.ParseCommandLine(preferences, args);
+            preferencesManager.ParseCommandLine(args);
+
+            var missingOptions = preferencesManager.GetMissingRequiredOptions();
+            if(missingOptions.Count != 0)
+            {
+                Console.WriteLine("Required options missing in both config file and command line arguments: ");
+                foreach(var option in missingOptions)
+                {
+                    Console.WriteLine(option);
+                }
+
+                Console.WriteLine();
+                PrintHelp();
+                return;
+            }
+
+            Preferences preferences = preferencesManager.Preferences;
+
+#if ENSURE_SECURITY
+            if(preferences.SecurityPreferences == null || preferences.SecurityPreferences.Method == SecurityMethod.None)
+            {
+                Console.WriteLine("BlockShare was compiled with ENSURE_SECURITY flag. Enable any security method via config.");
+                return;
+            }
+#endif
 
             ModeOfOperation mode = preferences.Mode;
+
+            if(mode == ModeOfOperation.None)
+            {
+                Console.WriteLine($"Mode of operation not selected");
+                PrintHelp();
+                return;
+            }
+
             if (mode == ModeOfOperation.Dehash)
             {
                 string storagePath = preferences.ServerStoragePath;
@@ -502,13 +535,7 @@ namespace BlockShare
                 client.OnDownloadingFinished += (clientRef, fileNameRef) => clientLogger.OnDownloadingFinished(fileNameRef);
 
                 Browser(client, preferences, clientLogger, preferences.ClientStartupPath);
-            }
-
-            if(mode == ModeOfOperation.None)
-            {
-                PreferencesManager.SavePreferences(preferences, configPath);
-                return;
-            }
+            }            
 
             Console.WriteLine("Press any key to close...");
             Console.ReadKey();

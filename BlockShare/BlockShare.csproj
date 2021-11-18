@@ -65,6 +65,16 @@
     <CodeAnalysisRuleSet>MinimumRecommendedRules.ruleset</CodeAnalysisRuleSet>
     <Prefer32Bit>true</Prefer32Bit>
   </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)' == 'Release-TLS|AnyCPU'">
+    <OutputPath>bin\Release-TLS\</OutputPath>
+    <DefineConstants>TRACE;ENSURE_SECURITY</DefineConstants>
+    <Optimize>true</Optimize>
+    <DebugType>pdbonly</DebugType>
+    <PlatformTarget>AnyCPU</PlatformTarget>
+    <LangVersion>7.3</LangVersion>
+    <ErrorReport>prompt</ErrorReport>
+    <Prefer32Bit>false</Prefer32Bit>
+  </PropertyGroup>
   <ItemGroup>
     <Reference Include="System" />
     <Reference Include="System.Core" />
@@ -116,6 +126,7 @@
     <Compile Include="BlockSharing\PreferencesManagement\AliasInfo.cs" />
     <Compile Include="BlockSharing\PreferencesManagement\CommandLineAliasAttribute.cs" />
     <Compile Include="BlockSharing\PreferencesManagement\Exceptions\CommandLineParsingException.cs" />
+    <Compile Include="BlockSharing\PreferencesManagement\Exceptions\PreferenceTypeNotSupportedException.cs" />
     <Compile Include="BlockSharing\PreferencesManagement\Exceptions\RequiredOptionMissingException.cs" />
     <Compile Include="BlockSharing\PreferencesManagement\Exceptions\PreferencesParsingException.cs" />
     <Compile Include="BlockSharing\PreferencesManagement\IPreferencesSerializable.cs" />
@@ -137,6 +148,7 @@
     <Compile Include="BlockSharing\HashMapping\ShaHashMapper.cs" />
     <Compile Include="BlockSharing\BlockShareTypes\ILogger.cs" />
     <Compile Include="BlockSharing\NetworkStatistics\NetStat.cs" />
+    <Compile Include="BlockSharing\PreferencesManagement\PreferenceParameterAttribute.cs" />
     <Compile Include="BlockSharing\PreferencesManagement\Preferences.cs" />
     <Compile Include="BlockSharing\PreferencesManagement\PreferencesManager.cs" />
     <Compile Include="BlockSharing\PreferencesManagement\SecurityMethod.cs" />

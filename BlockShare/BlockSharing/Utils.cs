@@ -101,6 +101,11 @@ namespace BlockShare.BlockSharing
 
         public static X509Certificate2 CreateFromPkcs12(string pkcs12File)
         {
+            if(!File.Exists(pkcs12File))
+            {
+                throw new FileNotFoundException($"Failed to load certificate from file {pkcs12File}: file does not exist");
+            }
+
             X509Certificate2 cert = new X509Certificate2(pkcs12File);
 
             return cert;
