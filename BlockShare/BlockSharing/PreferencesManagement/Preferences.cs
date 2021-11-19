@@ -85,5 +85,8 @@ namespace BlockShare.BlockSharing.PreferencesManagement
         [PreferenceParameter(IsRequired = false)]
         public HashMapper HashMapper { get; set; } = new ShaHashMapper(".hashparts", ".hashlists");
 
+        [PreferenceParameter(IsRequired = false)]
+        public string StorageMappingFile { get; set; } = null;
+
     }
 }

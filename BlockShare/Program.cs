@@ -411,15 +411,24 @@ namespace BlockShare
         static void Main(string[] args)
         {
             PreferencesManager<Preferences> preferencesManager = new PreferencesManager<Preferences>();
-                        
+
+#if DEBUG
+            foreach(string arg in args)
+            {
+                Console.WriteLine(arg);
+            }
+#endif
+
             if (args.Length == 0 || args.Length % 2 == 0)
             {
+                Console.WriteLine($"Incorrect number of arguments: {args.Length}\n");
                 PrintHelp();
                 return;
             }
             
             if (args.Contains("--help") || args.Contains("-h"))
             {
+                Console.WriteLine("Help requested\n");
                 PrintHelp();
                 return;
             }

@@ -4,6 +4,7 @@ using BlockShare.BlockSharing.DirectoryDigesting;
 using BlockShare.BlockSharing.HashLists;
 using BlockShare.BlockSharing.NetworkStatistics;
 using BlockShare.BlockSharing.PreferencesManagement;
+using BlockShare.BlockSharing.StorageMapping;
 using System;
 using System.Collections.Generic;
 using System.IO;
@@ -26,6 +27,8 @@ namespace BlockShare.BlockSharing
         private List<X509Certificate> acceptableCertificates = new List<X509Certificate>();
 
         private Preferences preferences;
+
+        private StorageMapper storageMapper;
 
         private NetStat clientNetStat = new NetStat();
         private bool disposedValue;
@@ -130,6 +133,7 @@ namespace BlockShare.BlockSharing
                 try
                 {
                     sslStream.AuthenticateAsClient(preferences.SecurityPreferences.ServerName, clientCertificates, true);
+                    Utils.LogSecurityInfo(Log, sslStream);
                 }
                 catch(AuthenticationException e)
                 {
@@ -153,6 +157,21 @@ namespace BlockShare.BlockSharing
             }
 
             Log($"Connected to server {preferences.ServerIp} {preferences.ServerPort}", 0);
+
+            if(preferences.StorageMappingFile != null)
+            {
+                storageMapper = new StorageMapper(preferences, preferences.StorageMappingFile, Logger);
+                Log("Using storage mapper", 0);
+            }
+        }
+
+        private string GetLocalFilePath(string remoteFilePath)
+        {
+            if(storageMapper != null)
+            {
+                return storageMapper.GetLocalPath(remoteFilePath);
+            }
+            return Path.Combine(preferences.ClientStoragePath, remoteFilePath);
         }
 
         public DirectoryDigest GetDirectoryDigest(string directory, int recursionLevel = int.MaxValue)
@@ -208,7 +227,9 @@ namespace BlockShare.BlockSharing
 
         private void DownloadFileNoHashlist(Stream networkStream, string fileName, int index, FileDigest fileDigest)
         {
-            string localFilePath = Path.Combine(preferences.ClientStoragePath, fileName);
+            //string localFilePath = Path.Combine(preferences.ClientStoragePath, fileName);
+            string localFilePath = GetLocalFilePath(fileName);
+
 
             FileInfo localFileInfo = new FileInfo(localFilePath);
             DirectoryInfo rootDirectoryInfo = new DirectoryInfo(preferences.ClientStoragePath);
@@ -291,7 +312,8 @@ namespace BlockShare.BlockSharing
 
         private void DownloadFileWithHashlist(Stream networkStream, string fileName, int index, FileDigest fileDigest)
         {
-            string localFilePath = Path.Combine(preferences.ClientStoragePath, fileName);
+            //string localFilePath = Path.Combine(preferences.ClientStoragePath, fileName);
+            string localFilePath = GetLocalFilePath(fileName);
             string localFileHashlistPath = preferences.HashMapper.GetHashpartFile(localFilePath);
 
             if (!File.Exists(localFilePath) && File.Exists(localFileHashlistPath))

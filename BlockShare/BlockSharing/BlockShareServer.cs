@@ -527,50 +527,7 @@ namespace BlockShare.BlockSharing
             Log($"Server certificate validation error: {sslPolicyErrors}", 0);
             return false;
         }
-
-        private void LogSecurityInfo(SslStream stream)
-        {
-            Log(String.Format("Cipher: {0} strength {1}", stream.CipherAlgorithm, stream.CipherStrength), 0);
-            Log(String.Format("Hash: {0} strength {1}", stream.HashAlgorithm, stream.HashStrength), 0);
-            Log(String.Format("Key exchange: {0} strength {1}", stream.KeyExchangeAlgorithm, stream.KeyExchangeStrength), 0);
-            Log(String.Format("Protocol: {0}", stream.SslProtocol), 0);
-
-            Log(String.Format("Is authenticated: {0} as server? {1}", stream.IsAuthenticated, stream.IsServer), 0);
-            Log(String.Format("IsSigned: {0}", stream.IsSigned), 0);
-            Log(String.Format("Is Encrypted: {0}", stream.IsEncrypted), 0);
-
-            Log(String.Format("Can read: {0}, write {1}", stream.CanRead, stream.CanWrite), 0);
-            Log(String.Format("Can timeout: {0}", stream.CanTimeout), 0);
-
-            Log(String.Format("Certificate revocation list checked: {0}", stream.CheckCertRevocationStatus), 0);
-
-            X509Certificate localCertificate = stream.LocalCertificate;
-            if (stream.LocalCertificate != null)
-            {
-                Log(String.Format("Local cert was issued to {0} and is valid from {1} until {2}.",
-                    localCertificate.Subject,
-                    localCertificate.GetEffectiveDateString(),
-                    localCertificate.GetExpirationDateString()), 0);
-            }
-            else
-            {
-                Log(String.Format("Local certificate is null."), 0);
-            }
-            // Display the properties of the client's certificate.
-            X509Certificate remoteCertificate = stream.RemoteCertificate;
-            if (stream.RemoteCertificate != null)
-            {
-                Log(String.Format("Remote cert was issued to {0} and is valid from {1} until {2}.",
-                    remoteCertificate.Subject,
-                    remoteCertificate.GetEffectiveDateString(),
-                    remoteCertificate.GetExpirationDateString()), 0);
-            }
-            else
-            {
-                Log(String.Format("Remote certificate is null."), 0);
-            }
-
-        }
+                
 
         private void ClientAcceptedMethod(object clientObj)
         {
@@ -613,7 +570,7 @@ namespace BlockShare.BlockSharing
                     try
                     {
                         sslStream.AuthenticateAsServer(serverCertificate, clientCertificateRequired: true, checkCertificateRevocation: true);
-                        LogSecurityInfo(sslStream);
+                        Utils.LogSecurityInfo(Log, sslStream);
 
                         //sslStream.ReadTimeout = 60000;
                         //sslStream.WriteTimeout = 60000;

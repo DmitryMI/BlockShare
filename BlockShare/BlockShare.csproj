@@ -153,6 +153,8 @@
     <Compile Include="BlockSharing\PreferencesManagement\PreferencesManager.cs" />
     <Compile Include="BlockSharing\PreferencesManagement\SecurityMethod.cs" />
     <Compile Include="BlockSharing\PreferencesManagement\SecurityPreferences.cs" />
+    <Compile Include="BlockSharing\StorageMapping\MappingFileParsingException.cs" />
+    <Compile Include="BlockSharing\StorageMapping\StorageMapper.cs" />
     <Compile Include="BlockSharing\Utils.cs" />
     <Compile Include="Program.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
