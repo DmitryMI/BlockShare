@@ -86,6 +86,7 @@ namespace BlockShare.BlockSharing.StorageMapping
                 catch(MappingFileParsingException)
                 {
                     Logger?.Log($"Mapping loading failed on line {i}. Wrong syntax. Use \"<key>\" \"<value>\"");
+                    throw;
                 }                
             }
         }
