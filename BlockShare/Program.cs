@@ -347,7 +347,10 @@ namespace BlockShare
                         break;
                     case "U":
                         // TODO remoteViewer.GoUp();
-                        current = pathStack.Pop();
+                        if (pathStack.Count > 0)
+                        {
+                            current = pathStack.Pop();
+                        }
                         break;
                     case "Q":
                         return;
