@@ -10,12 +10,14 @@ using System.Security.Cryptography;
 using System.Security.Cryptography.X509Certificates;
 using System.Text;
 using System.Threading.Tasks;
+using BlockShare.BlockSharing.BlockShareSecurity;
 using BlockShare.BlockSharing.BlockShareTypes;
 using BlockShare.BlockSharing.BlockShareTypes.BlockShareCommands;
 using BlockShare.BlockSharing.DirectoryDigesting;
 using BlockShare.BlockSharing.HashLists;
 using BlockShare.BlockSharing.NetworkStatistics;
 using BlockShare.BlockSharing.PreferencesManagement;
+using BlockShare.BlockSharing.PreferencesManagement.Exceptions;
 
 namespace BlockShare.BlockSharing
 {
@@ -27,6 +29,7 @@ namespace BlockShare.BlockSharing
 
         private IPEndPoint localEndpoint;
 
+        private X509Certificate certificateAuthority;
         private List<X509Certificate> acceptableCertificates = new List<X509Certificate>();
 
         public ILogger Logger { get; set; }
@@ -92,11 +95,34 @@ namespace BlockShare.BlockSharing
 
         private void InitializeCertificates()
         {
-            if (preferences?.SecurityPreferences?.AcceptedCertificatesDirectoryPath != null)
+            if (preferences.SecurityPreferences != null)
             {
-                string path = preferences.SecurityPreferences.AcceptedCertificatesDirectoryPath;
-                acceptableCertificates.AddRange(Utils.GetCertificates(path));
+                SecurityPreferences securityPreferences = preferences.SecurityPreferences;
+                if (securityPreferences.AcceptedCertificatesDirectoryPath != null)
+                {
+                    string path = preferences.SecurityPreferences.AcceptedCertificatesDirectoryPath;
+                    acceptableCertificates.AddRange(Utils.GetCertificates(path));
+                }
+                else
+                {
+                    throw new RequiredOptionMissingException("N/A", "SecurityPreferences.AcceptedCertificatesDirectoryPath");
+                }
+
+                if(securityPreferences.CertificateAuthorityPath != null)
+                {
+                    string path = securityPreferences.CertificateAuthorityPath;
+                    if(!File.Exists(path))
+                    {
+                        throw new FileNotFoundException("Certificate Authority file does not exist", path);
+                    }
+                    certificateAuthority = new X509Certificate(path);
+                }
+                else
+                {
+                    throw new RequiredOptionMissingException("N/A", "SecurityPreferences.CertificateAuthorityPath");
+                }
             }
+            
         }
 
 
@@ -516,15 +542,21 @@ namespace BlockShare.BlockSharing
                 return false;
             }
 
+            if(!SecurityUtils.VerifyCertificate(certificate, certificateAuthority))
+            {
+                Log($"Client certificate verification failed", 0);
+                return false;
+            }
+
             foreach (X509Certificate acceptedCert in acceptableCertificates)
             {
-                if (Utils.CompareBytes(acceptedCert.GetCertHash(), certificate.GetCertHash()))
+                if (SecurityUtils.CompareCertificates(acceptedCert, certificate))
                 {
                     return true;
                 }
             }
-
-            Log($"Server certificate validation error: {sslPolicyErrors}", 0);
+            Log($"Client certificate not found in list of accepted certificates", 0);
+            Log($"Client certificate validation error: {sslPolicyErrors}", 0);
             return false;
         }
                 
@@ -544,7 +576,7 @@ namespace BlockShare.BlockSharing
                     X509Certificate2 serverCertificate = null;
                     try
                     {
-                        serverCertificate = Utils.CreateFromPkcs12(preferences.SecurityPreferences.ServerCertificatePath);
+                        serverCertificate = SecurityUtils.CreateFromPkcs12(preferences.SecurityPreferences.ServerCertificatePath);
                     }
                     catch(FileNotFoundException ex)
                     {
@@ -570,7 +602,7 @@ namespace BlockShare.BlockSharing
                     try
                     {
                         sslStream.AuthenticateAsServer(serverCertificate, clientCertificateRequired: true, checkCertificateRevocation: true);
-                        Utils.LogSecurityInfo(Log, sslStream);
+                        SecurityUtils.LogSecurityInfo(Log, sslStream);
 
                         //sslStream.ReadTimeout = 60000;
                         //sslStream.WriteTimeout = 60000;

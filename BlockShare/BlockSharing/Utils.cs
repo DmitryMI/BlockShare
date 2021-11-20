@@ -100,61 +100,7 @@ namespace BlockShare.BlockSharing
             sw.Stop();
         }        
 
-        public static X509Certificate2 CreateFromPkcs12(string pkcs12File)
-        {
-            if(!File.Exists(pkcs12File))
-            {
-                throw new FileNotFoundException($"Failed to load certificate from file {pkcs12File}: file does not exist");
-            }
-
-            X509Certificate2 cert = new X509Certificate2(pkcs12File);
-
-            return cert;
-        }
-
-        public static void LogSecurityInfo(Action<string, int> Log, SslStream stream)
-        {
-            Log(String.Format("Cipher: {0} strength {1}", stream.CipherAlgorithm, stream.CipherStrength), 0);
-            Log(String.Format("Hash: {0} strength {1}", stream.HashAlgorithm, stream.HashStrength), 0);
-            Log(String.Format("Key exchange: {0} strength {1}", stream.KeyExchangeAlgorithm, stream.KeyExchangeStrength), 0);
-            Log(String.Format("Protocol: {0}", stream.SslProtocol), 0);
-
-            Log(String.Format("Is authenticated: {0} as server? {1}", stream.IsAuthenticated, stream.IsServer), 0);
-            Log(String.Format("Is Signed: {0}", stream.IsSigned), 0);
-            Log(String.Format("Is Encrypted: {0}", stream.IsEncrypted), 0);
-
-            Log(String.Format("Can read: {0}, write {1}", stream.CanRead, stream.CanWrite), 0);
-            Log(String.Format("Can timeout: {0}", stream.CanTimeout), 0);
-
-            Log(String.Format("Certificate revocation list checked: {0}", stream.CheckCertRevocationStatus), 0);
-
-            X509Certificate localCertificate = stream.LocalCertificate;
-            if (stream.LocalCertificate != null)
-            {
-                Log(String.Format("Local cert was issued to {0} and is valid from {1} until {2}.",
-                    localCertificate.Subject,
-                    localCertificate.GetEffectiveDateString(),
-                    localCertificate.GetExpirationDateString()), 0);
-            }
-            else
-            {
-                Log(String.Format("Local certificate is null."), 0);
-            }
-            // Display the properties of the client's certificate.
-            X509Certificate remoteCertificate = stream.RemoteCertificate;
-            if (stream.RemoteCertificate != null)
-            {
-                Log(String.Format("Remote cert was issued to {0} and is valid from {1} until {2}.",
-                    remoteCertificate.Subject,
-                    remoteCertificate.GetEffectiveDateString(),
-                    remoteCertificate.GetExpirationDateString()), 0);
-            }
-            else
-            {
-                Log(String.Format("Remote certificate is null."), 0);
-            }
-
-        }
+       
 
         public static bool CompareBytes(byte[] array1, byte[] array2)
         {

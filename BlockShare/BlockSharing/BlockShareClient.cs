@@ -1,9 +1,11 @@
-﻿using BlockShare.BlockSharing.BlockShareTypes;
+﻿using BlockShare.BlockSharing.BlockShareSecurity;
+using BlockShare.BlockSharing.BlockShareTypes;
 using BlockShare.BlockSharing.BlockShareTypes.BlockShareCommands;
 using BlockShare.BlockSharing.DirectoryDigesting;
 using BlockShare.BlockSharing.HashLists;
 using BlockShare.BlockSharing.NetworkStatistics;
 using BlockShare.BlockSharing.PreferencesManagement;
+using BlockShare.BlockSharing.PreferencesManagement.Exceptions;
 using BlockShare.BlockSharing.StorageMapping;
 using System;
 using System.Collections.Generic;
@@ -24,6 +26,7 @@ namespace BlockShare.BlockSharing
 
         private Stream networkStream;
 
+        private X509Certificate certificateAuthority;
         private List<X509Certificate> acceptableCertificates = new List<X509Certificate>();
 
         private Preferences preferences;
@@ -73,13 +76,20 @@ namespace BlockShare.BlockSharing
                 return false;
             }
 
+            if(!SecurityUtils.VerifyCertificate(certificate, certificateAuthority))
+            {
+                Log($"Server certificate validation failed", 0);
+                return false;
+            }
+
             foreach (X509Certificate acceptedCert in acceptableCertificates)
             {
-                if (Utils.CompareBytes(acceptedCert.GetCertHash(), certificate.GetCertHash()))
+                if(SecurityUtils.CompareCertificates(acceptedCert, certificate))
                 {
                     return true;
                 }
             }
+            Log($"Server certificate not found in list of accepted certificates", 0);
 
             Log($"Server certificate validation error: {sslPolicyErrors}", 0);
             return false;
@@ -112,10 +122,29 @@ namespace BlockShare.BlockSharing
 
                 acceptableCertificates.AddRange(Utils.GetCertificates(preferences.SecurityPreferences.AcceptedCertificatesDirectoryPath));
 
+                if (preferences.SecurityPreferences.CertificateAuthorityPath != null)
+                {
+                    certificateAuthority = new X509Certificate(preferences.SecurityPreferences.CertificateAuthorityPath);
+                }
+                else
+                {
+                    throw new RequiredOptionMissingException("Loaded config", "SecurityPreferences.CertificateAuthorityPath");
+                }
+
+                if (!File.Exists(preferences.SecurityPreferences.CertificateAuthorityPath))
+                {
+                    throw new FileNotFoundException("Certificate Authority does not exist", preferences.SecurityPreferences.CertificateAuthorityPath);
+                }
+
+                if (preferences.SecurityPreferences.ServerName == null)
+                {
+                    throw new RequiredOptionMissingException("Loaded config", "SecurityPreferences.ServerName");
+                }
+
                 Log($"Accepted certificates count: {acceptableCertificates.Count}", 0);
 
                 X509Certificate clientCertificate = null;
-                clientCertificate = Utils.CreateFromPkcs12(preferences.SecurityPreferences.ClientCertificatePath);
+                clientCertificate = SecurityUtils.CreateFromPkcs12(preferences.SecurityPreferences.ClientCertificatePath);
 
                 Log($"Client certificate: {clientCertificate.GetCertHashString()}", 0);
 
@@ -133,7 +162,7 @@ namespace BlockShare.BlockSharing
                 try
                 {
                     sslStream.AuthenticateAsClient(preferences.SecurityPreferences.ServerName, clientCertificates, true);
-                    Utils.LogSecurityInfo(Log, sslStream);
+                    SecurityUtils.LogSecurityInfo(Log, sslStream);
                 }
                 catch(AuthenticationException e)
                 {

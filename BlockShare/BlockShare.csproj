@@ -89,6 +89,7 @@
   </ItemGroup>
   <ItemGroup>
     <Compile Include="BlockSharing\BlockShareClient.cs" />
+    <Compile Include="BlockSharing\BlockShareSecurity\SecurityUtils.cs" />
     <Compile Include="BlockSharing\BlockShareServer.cs" />
     <Compile Include="BlockSharing\BlockShareTypes\BlockShareCommands\GetFileDigestCommand.cs" />
     <Compile Include="BlockSharing\BlockShareTypes\BlockShareCommands\InvalidOperationCommand.cs" />
