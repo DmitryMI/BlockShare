@@ -340,6 +340,17 @@ namespace BlockShare.BlockSharing
             return bytes;
         }
 
+        public static int[] Range(int fromInclusive, int toInclusive)
+        {
+            int count = toInclusive - fromInclusive + 1;
+            int[] range = new int[count];
+            for(int i = 0; i < count; i++)
+            {
+                range[i] = fromInclusive + i;
+            }
+            return range;
+        }
+
         public static string FormatByteSize(long sizeInBytes)
         {
             if (sizeInBytes < 1024)

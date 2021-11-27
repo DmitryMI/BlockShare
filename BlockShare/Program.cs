@@ -17,6 +17,7 @@ using BlockShare.BlockSharing.NetworkStatistics;
 using BlockShare.BlockSharing.HashLists;
 using System.Reflection;
 using BlockShare.BlockSharing.PreferencesManagement.Exceptions;
+using BlockShare.BlockSharing.StorageMapping;
 
 namespace BlockShare
 {
@@ -202,10 +203,49 @@ namespace BlockShare
             Console.WriteLine("Prehashing finished");
         }
 
+        class BrowserInput
+        {
+            public string Command { get; set; }
+            public int[] EntryIndexes { get; set; } 
+
+            public BrowserInput(string consoleInput)
+            {
+                string[] words = consoleInput.Split(' ');
+                bool isFirstWordIndex = int.TryParse(words[0], out int index);
+                if(isFirstWordIndex)
+                {
+                    Command = "E";
+                    EntryIndexes = new int[] { index };
+                }
+                else
+                {
+                    Command = words[0];
+                    List<int> indexes = new List<int>();
+                    for(int i = 1; i < words.Length; i++)
+                    {
+                        if(words[i] == "-")
+                        {
+                            bool nextIndexCorrect = int.TryParse(words[i + 1], out int nextIndex);                            
+                            int lastIndex = indexes[indexes.Count - 1];
+                            int[] range = Utils.Range(lastIndex + 1, nextIndex);
+                            indexes.AddRange(range);
+                            i++;
+                        }
+                        else
+                        {
+                            int nextIndex = int.Parse(words[i]);
+                            indexes.Add(nextIndex);
+                        }
+                    }
+                    EntryIndexes = indexes.ToArray();
+                }
+            }
+        }
+
         static void Browser(BlockShareClient client, Preferences preferences, ILogger clientLogger, string fileName)
         {
-            //BlockShareClientOld client = new BlockShareClientOld(preferences, clientLogger);
-            //DirectoryDigest rootDigest = client.GetDirectoryDigest(ip, port, fileName, 1);
+            StorageMapper storageMapper = new StorageMapper(preferences, preferences.StorageMappingFile, clientLogger);
+
             DirectoryDigest rootDigest = client.GetDirectoryDigest(fileName, preferences.BrowserRecursionLevel);
             if (rootDigest == null)
             {
@@ -238,14 +278,19 @@ namespace BlockShare
                 }
                 for (int i = 0; i < dirs.Count; i++)
                 {
+                    // Index
                     Console.ForegroundColor = ConsoleColor.Green;
                     Console.Write($"{i}. ");
+                    // Name
                     Console.ForegroundColor = ConsoleColor.Gray;
                     Console.Write(dirs[i].Name);
                     Console.Write($" ");
+                    // Size
                     Console.ForegroundColor = ConsoleColor.DarkGray;
                     string sizeFormat = Utils.FormatByteSize(dirs[i].Size);
                     Console.WriteLine($"({sizeFormat})");
+                    // TODO Directory Percentage
+                    
                 }
 
                 Console.WriteLine("\nFiles: \n");
@@ -264,7 +309,36 @@ namespace BlockShare
                     Console.Write($" ");
                     Console.ForegroundColor = ConsoleColor.DarkGray;
                     string sizeFormat = Utils.FormatByteSize(files[i].Size);
-                    Console.WriteLine($"({sizeFormat})");
+                    Console.Write($"({sizeFormat})");
+
+                    string localFile = storageMapper.GetLocalPath(files[i].RelativePath);                    
+                    if (File.Exists(localFile))
+                    {
+                        FileInfo fileInfo = new FileInfo(localFile);
+                        long localFileSize = fileInfo.Length;
+                        float downloadedPercentage = (float)localFileSize / files[i].Size * 100;
+                        if (localFileSize == files[i].Size)
+                        {
+                            Console.ForegroundColor = ConsoleColor.Gray;
+                            Console.Write(" - ");
+                            Console.ForegroundColor = ConsoleColor.Cyan;
+                            Console.WriteLine($"100.00%");
+                        }
+                        else
+                        {
+                            Console.ForegroundColor = ConsoleColor.Gray;
+                            Console.Write(" - ");
+                            Console.ForegroundColor = ConsoleColor.Gray;
+                            Console.WriteLine($"{downloadedPercentage:F2}%");
+                        }
+                    }
+                    else
+                    {
+                        Console.ForegroundColor = ConsoleColor.Gray;
+                        Console.Write(" - ");
+                        Console.ForegroundColor = ConsoleColor.Red;
+                        Console.WriteLine($"N/A");
+                    }
                 }
 
                 Console.WriteLine();
@@ -281,31 +355,48 @@ namespace BlockShare
                 {
                     continue;
                 }
-                string[] inputWords = input.Split(' ');
-
-                string entryName = string.Empty;
-                if (inputWords.Length == 2)
+                BrowserInput browserInput;
+                try
                 {
-                    bool ok = int.TryParse(inputWords[1], out int index);
-                    if (!ok)
-                    {
-                        continue;
-                    }
-
-                    if (index < dirs.Count)
-                    {
-                        entryName = dirs[index].RelativePath;
-                    }
-                    else
-                    {
-                        entryName = files[index - dirs.Count].RelativePath;
-                    }
+                    browserInput  = new BrowserInput(input);
                 }
-                else
+                catch(Exception)
                 {
-                    bool ok = int.TryParse(inputWords[0], out int enterIndex);
-                    if (ok)
-                    {                        
+                    continue;
+                }
+
+#if DEBUG
+                for (int i = 0; i < browserInput.EntryIndexes.Length; i++)
+                {
+                    Console.Write(browserInput.EntryIndexes[i]);
+                    Console.Write(' ');                    
+                }
+                Console.WriteLine();
+#endif
+
+                switch (browserInput.Command.ToUpper())
+                {
+                    case "D":
+                        for (int i = 0; i < browserInput.EntryIndexes.Length; i++)
+                        {
+                            string entryName;
+                            int index = browserInput.EntryIndexes[i];
+                            if (index < dirs.Count)
+                            {
+                                entryName = dirs[index].RelativePath;
+                            }
+                            else
+                            {
+                                entryName = files[index - dirs.Count].RelativePath;
+                            }
+                            Download(client, preferences, clientLogger, entryName);
+                        }
+                        Console.WriteLine("Press any key to return to Browser mode...");
+                        Console.ReadKey();
+                        break;
+                    case "E":
+                        // TODO remoteViewer.EnterByAbsolutePath(entryName);
+                        int enterIndex = browserInput.EntryIndexes[0];
                         if (enterIndex < dirs.Count)
                         {
                             pathStack.Push(current);
@@ -313,37 +404,9 @@ namespace BlockShare
                         }
                         else
                         {
-                           // TODO May be start downloading here?
+                            // TODO May be start downloading here?
                         }
 
-                        continue;
-                    }
-                }
-
-                switch (inputWords[0].ToUpper())
-                {
-                    case "D":
-                        Download(client, preferences, clientLogger, entryName);
-                        Console.WriteLine("Press any key to return to Browser mode...");
-                        Console.ReadKey();
-                        break;
-                    case "E":
-                        // TODO remoteViewer.EnterByAbsolutePath(entryName);
-                        bool ok = int.TryParse(inputWords[1], out int enterIndex);
-                        if (ok)
-                        {
-                            if (enterIndex < dirs.Count)
-                            {
-                                pathStack.Push(current);
-                                current = dirs[enterIndex];
-                            }
-                            else
-                            {
-                                // TODO May be start downloading here?
-                            }
-
-                            continue;
-                        }
                         break;
                     case "U":
                         // TODO remoteViewer.GoUp();
@@ -472,6 +535,10 @@ namespace BlockShare
                 PrintHelp();
                 return;
             }
+
+            FileInfo configFileInfo = new FileInfo(configPath);
+
+            Environment.CurrentDirectory = configFileInfo.DirectoryName;
 
             Preferences preferences = preferencesManager.Preferences;
 
