@@ -21,7 +21,10 @@ namespace BlockShare.BlockSharing.StorageMapping
             Logger = logger;
             mappings = new Dictionary<string, string>();
 
-            LoadMappingsFromFile(mappingsFile);
+            if (mappingsFile != null)
+            {
+                LoadMappingsFromFile(mappingsFile);
+            }
         }
 
         private void ReadFromLine(string line, out string key, out string value)
