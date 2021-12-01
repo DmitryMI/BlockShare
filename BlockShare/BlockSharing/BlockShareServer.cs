@@ -43,6 +43,8 @@ namespace BlockShare.BlockSharing
 
         private List<TcpClient> activeClients = new List<TcpClient>();
 
+        private DirectoryDigestManager directoryDigestManager;
+
         #region Events
         public event Action<BlockShareServer, IPEndPoint> OnClientConnected;
         public event Action<BlockShareServer, IPEndPoint> OnClientDisconnected;
@@ -129,6 +131,8 @@ namespace BlockShare.BlockSharing
         public void StartServer()
         {
             isServerRunning = true;
+
+            directoryDigestManager = new DirectoryDigestManager(preferences, Logger);
 
             Log($"Starting server on {localEndpoint}...", 0);
             tcpListener = new TcpListener(localEndpoint);
@@ -340,7 +344,9 @@ namespace BlockShare.BlockSharing
                     Log($"Generating XML digest with recursion level {getDirectoryDigestCommand.RecursionLevel}...", 0);
                     DirectoryInfo directoryInfo = new DirectoryInfo(digestFilePath);
                     DirectoryInfo rootDirectoryInfo = new DirectoryInfo(preferences.ServerStoragePath);
-                    DirectoryDigest directoryDigest = new DirectoryDigest(directoryInfo, rootDirectoryInfo, getDirectoryDigestCommand.RecursionLevel);
+                    //DirectoryDigest directoryDigest = new DirectoryDigest(directoryInfo, rootDirectoryInfo, getDirectoryDigestCommand.RecursionLevel);
+
+                    DirectoryDigest directoryDigest = directoryDigestManager.GetDirectoryDigest(directoryInfo, getDirectoryDigestCommand.RecursionLevel);
 
                     //byte[] xmlDigestBytes = DirectoryDigest.Serialize(directoryDigest);
                     //int digestLength = xmlDigestBytes.Length;

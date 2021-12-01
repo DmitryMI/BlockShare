@@ -11,11 +11,9 @@ using System.Xml;
 
 namespace BlockShare.BlockSharing.DirectoryDigesting
 {
-    public class FileDigest : INetSerializable
+    public class FileDigest : EntryDigest, INetSerializable
     {
-        public string RelativePath { get; set; }
-        public string Name { get; private set; }
-        public long Size { get; set; }        
+        public override bool IsDirectory => true;
 
         public FileDigest(string relativePath, string absoluteFilePath)
         {

@@ -111,6 +111,10 @@
     <Compile Include="BlockSharing\BlockShareTypes\DownloadingProgressEventData.cs" />
     <Compile Include="BlockSharing\BlockShareTypes\INetSerializable.cs" />
     <Compile Include="BlockSharing\BlockShareTypes\ModeOfOperation.cs" />
+    <Compile Include="BlockSharing\DirectoryDigesting\DirectoryDigestManager.cs" />
+    <Compile Include="BlockSharing\DirectoryDigesting\EntryDigest.cs" />
+    <Compile Include="BlockSharing\DirectoryDigesting\Exceptions\PathNotFoundException.cs" />
+    <Compile Include="BlockSharing\DirectoryDigesting\Exceptions\PathSegmentIsFileException.cs" />
     <Compile Include="BlockSharing\Gui\ClientForm.cs">
       <SubType>Form</SubType>
     </Compile>

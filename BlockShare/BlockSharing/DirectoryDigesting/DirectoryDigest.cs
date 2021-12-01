@@ -1,4 +1,5 @@
-﻿using BlockShare.BlockSharing.PreferencesManagement;
+﻿using BlockShare.BlockSharing.DirectoryDigesting.Exceptions;
+using BlockShare.BlockSharing.PreferencesManagement;
 using System;
 using System.Collections;
 using System.Collections.Generic;
@@ -10,7 +11,7 @@ using System.Xml;
 
 namespace BlockShare.BlockSharing.DirectoryDigesting
 {
-    public class DirectoryDigest
+    public class DirectoryDigest : EntryDigest
     {
         private DirectoryInfo directoryInfo;
         private DirectoryInfo rootDirectoryInfo;
@@ -24,15 +25,11 @@ namespace BlockShare.BlockSharing.DirectoryDigesting
         }
 
         public bool IsLoaded { get; private set; }
-        public long Size { get; private set; }
-        public string RelativePath { get; private set; }
-        public string Name { get; private set; }
 
-        #region events
+        public override bool IsDirectory => true;
 
-        #endregion
 
-        public DirectoryDigest (DirectoryInfo directoryInfo, DirectoryInfo rootDirectoryInfo, int recursionLevel = Int32.MaxValue)
+        public DirectoryDigest(DirectoryInfo directoryInfo, DirectoryInfo rootDirectoryInfo, int recursionLevel = Int32.MaxValue)
         {
             GenerateDigest(directoryInfo, rootDirectoryInfo, recursionLevel);
         }
@@ -97,9 +94,19 @@ namespace BlockShare.BlockSharing.DirectoryDigesting
             Name = directoryInfo.Name;
         }
 
+        protected virtual string SerializeDateTime(DateTime dateTime)
+        {
+            return dateTime.ToBinary().ToString();
+        }
+
+        protected virtual DateTime DeserializeDateTime(string serializedDateTime)
+        {
+            long binary = long.Parse(serializedDateTime);
+            return DateTime.FromBinary(binary);
+        }
 
         private XmlElement ToXmlElement(XmlDocument doc, XmlElement parent)
-        { 
+        {
             XmlElement directoryDigestElement = doc.CreateElement(string.Empty, "DirectoryDigest", string.Empty);
 
             if (parent != null)
@@ -118,6 +125,10 @@ namespace BlockShare.BlockSharing.DirectoryDigesting
             XmlAttribute nameAttribute = doc.CreateAttribute("Name");
             nameAttribute.Value = Name;
             directoryDigestElement.SetAttributeNode(nameAttribute);
+
+            XmlAttribute updateTimeAttribute = doc.CreateAttribute("UpdateTime");
+            updateTimeAttribute.Value = SerializeDateTime(UpdateTime);
+            directoryDigestElement.SetAttributeNode(updateTimeAttribute);
 
             XmlAttribute loadedAttribute = doc.CreateAttribute("Loaded");
             loadedAttribute.Value = IsLoaded.ToString();
@@ -188,7 +199,7 @@ namespace BlockShare.BlockSharing.DirectoryDigesting
             else
             {
                 Size = long.Parse(sizeAttribute.Value);
-            }           
+            }
 
             XmlAttribute pathAttribute = xmlElement.GetAttributeNode("Path");
             if (pathAttribute == null)
@@ -210,6 +221,17 @@ namespace BlockShare.BlockSharing.DirectoryDigesting
             else
             {
                 Name = nameAttribute.Value;
+            }
+
+            XmlAttribute updateTimeAttribute = xmlElement.GetAttributeNode("UpdateTime");
+            if (updateTimeAttribute == null)
+            {
+                Console.WriteLine("[DirectoryDigest] Warning: XML digest is malformed (UpdateTime Attribute not found)");
+                UpdateTime = default(DateTime);
+            }
+            else
+            {
+                UpdateTime = DeserializeDateTime(updateTimeAttribute.Value);
             }
 
             XmlAttribute loadedAttribute = xmlElement.GetAttributeNode("Loaded");
@@ -273,7 +295,7 @@ namespace BlockShare.BlockSharing.DirectoryDigesting
         public IReadOnlyList<FileDigest> GetFilesRecursive()
         {
             List<FileDigest> fileList = new List<FileDigest>();
-            foreach(DirectoryDigest dir in subdirsDigestList)
+            foreach (DirectoryDigest dir in subdirsDigestList)
             {
                 fileList.AddRange(dir.GetFilesRecursive());
             }
@@ -289,6 +311,147 @@ namespace BlockShare.BlockSharing.DirectoryDigesting
             fileDigestList = directoryDigest.fileDigestList;
             subdirsDigestList = directoryDigest.subdirsDigestList;
             Size = directoryDigest.Size;
+        }
+
+        private static string ReassemblePath(string[] segments, int count)
+        {
+            StringBuilder requestBuilder = new StringBuilder();
+            for (int i = 0; i < count; i++)
+            {
+                requestBuilder.Append(segments[i]).Append(Path.DirectorySeparatorChar);
+            }
+
+            return requestBuilder.ToString();
+        }
+
+        public EntryDigest GetEntry(string[] pathSegments, int currentIndex)
+        {
+            string segment = pathSegments[currentIndex];
+
+            foreach (var directory in subdirsDigestList)
+            {
+                if (directory.Name == segment)
+                {
+                    if (currentIndex == pathSegments.Length - 1)
+                    {
+                        return directory;
+                    }
+                    else
+                    {
+                        return directory.GetEntry(pathSegments, currentIndex + 1);
+                    }
+                }
+            }
+
+            if (currentIndex != pathSegments.Length - 1)
+            {
+                throw new PathSegmentIsFileException(ReassemblePath(pathSegments, pathSegments.Length), ReassemblePath(pathSegments, currentIndex));
+            }
+
+            foreach (var file in fileDigestList)
+            {
+                if (file.Name == segment)
+                {
+                    return file;
+                }
+            }
+
+            throw new PathNotFoundException(ReassemblePath(pathSegments, pathSegments.Length));
+        }
+
+        public EntryDigest GetEntry(string path)
+        {
+            if (string.IsNullOrWhiteSpace(path))
+            {
+                return this;
+            }
+            string[] segments = path.Split(Path.DirectorySeparatorChar);
+            return GetEntry(segments, 0);
+        }
+
+        public void SetEntry(string[] pathSegments, int currentIndex, EntryDigest entryDigest)
+        {
+            string segment = pathSegments[currentIndex];
+
+            if (currentIndex == pathSegments.Length - 1)
+            {
+                int directoryIndex = -1;
+                int fileIndex = -1;
+                for (int i = 0; i < subdirsDigestList.Count; i++)
+                {
+                    if (subdirsDigestList[i].Name == segment)
+                    {
+                        directoryIndex = i;
+                        break;
+                    }
+                }
+                for (int i = 0; i < fileDigestList.Count; i++)
+                {
+                    if (fileDigestList[i].Name == segment)
+                    {
+                        fileIndex = i;
+                        break;
+                    }
+                }
+
+                if(entryDigest.IsDirectory)
+                {
+                    if (directoryIndex != -1)
+                    {
+                        subdirsDigestList[directoryIndex] = (DirectoryDigest)entryDigest;
+                    }
+                    else
+                    {
+                        subdirsDigestList.Add((DirectoryDigest)entryDigest);
+                    }    
+
+                    if(fileIndex != -1)
+                    {
+                        fileDigestList.RemoveAt(fileIndex);
+                    }
+                }
+                else
+                {
+                    if (fileIndex != -1)
+                    {
+                        fileDigestList[fileIndex] = (FileDigest)entryDigest;
+                    }
+                    else
+                    {
+                        fileDigestList.Add((FileDigest)entryDigest);
+                    }
+
+                    if (directoryIndex != -1)
+                    {
+                        subdirsDigestList.RemoveAt(directoryIndex);
+                    }
+                }
+            }
+            else
+            {
+                for (int i = 0; i < subdirsDigestList.Count; i++)
+                {
+                    if (subdirsDigestList[i].Name == segment)
+                    {
+                        subdirsDigestList[i].SetEntry(pathSegments, currentIndex + 1, entryDigest);
+                        return;
+                    }
+                }
+                throw new NotImplementedException();
+            }
+
+            throw new PathNotFoundException(ReassemblePath(pathSegments, pathSegments.Length));
+        }
+
+        public void SetEntry(string path, EntryDigest value)
+        {
+            if (string.IsNullOrWhiteSpace(path))
+            {
+                throw new ArgumentException();
+            }
+
+            string[] segments = path.Split(Path.DirectorySeparatorChar);
+            SetEntry(segments, 0, value);
         }
     }
 }
