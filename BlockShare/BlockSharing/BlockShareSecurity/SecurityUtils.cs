@@ -1,8 +1,13 @@
-﻿using System;
+﻿using BlockShare.BlockSharing.BlockShareTypes;
+using BlockShare.BlockSharing.PreferencesManagement;
+using BlockShare.BlockSharing.PreferencesManagement.Exceptions;
+using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Net.Security;
+using System.Net.Sockets;
+using System.Security.Authentication;
 using System.Security.Cryptography.X509Certificates;
 using System.Text;
 using System.Threading.Tasks;
@@ -72,10 +77,10 @@ namespace BlockShare.BlockSharing.BlockShareSecurity
             byte[] cert1Hash = certificate1.GetCertHash();
             byte[] cert2Hash = certificate2.GetCertHash();
             return Utils.CompareBytes(cert1Hash, cert2Hash);
-        }        
+        }
 
         public static bool VerifyCertificate(X509Certificate cert, X509Certificate root)
-        { 
+        {
             X509Chain chain = new X509Chain();
             chain.ChainPolicy.RevocationMode = X509RevocationMode.NoCheck;
             X509Certificate2 root2 = new X509Certificate2(root);
@@ -89,6 +94,83 @@ namespace BlockShare.BlockSharing.BlockShareSecurity
             isValid = isValid && chainRoot.RawData.SequenceEqual(root.GetRawCertData());
 
             return isValid;
+        }
+
+        public class CreateSslConnectionParams
+        {
+            public Preferences Preferences { get; set; }
+            public TcpClient TcpClient { get; set; }
+            public ILogger Logger { get; set; }
+            public List<X509Certificate> AcceptableCertificates { get; set; }
+            public RemoteCertificateValidationCallback RemoteCertificateValidationCallback { get; set; }
+            public LocalCertificateSelectionCallback LocalCertificateSelectionCallback { get; set; }
+        }
+
+        public static void CreateSslConnection(CreateSslConnectionParams methodArgs, out SslStream sslStream, out X509Certificate certificateAuthority)
+        {
+            ILogger logger = methodArgs.Logger;
+            Preferences preferences = methodArgs.Preferences;
+            var acceptableCertificates = methodArgs.AcceptableCertificates;
+            var tcpClient = methodArgs.TcpClient;
+            logger?.Log($"Using security method: {preferences.SecurityPreferences.Method}");
+
+            acceptableCertificates.AddRange(Utils.GetCertificates(preferences.SecurityPreferences.AcceptedCertificatesDirectoryPath));
+
+            if (preferences.SecurityPreferences.CertificateAuthorityPath != null)
+            {
+                certificateAuthority = new X509Certificate(preferences.SecurityPreferences.CertificateAuthorityPath);
+            }
+            else
+            {
+                throw new RequiredOptionMissingException("Loaded config", "SecurityPreferences.CertificateAuthorityPath");
+            }
+
+            if (!File.Exists(preferences.SecurityPreferences.CertificateAuthorityPath))
+            {
+                throw new FileNotFoundException("Certificate Authority does not exist", preferences.SecurityPreferences.CertificateAuthorityPath);
+            }
+
+            if (preferences.SecurityPreferences.ServerName == null)
+            {
+                throw new RequiredOptionMissingException("Loaded config", "SecurityPreferences.ServerName");
+            }
+
+            logger?.Log($"Accepted certificates count: {acceptableCertificates.Count}");
+
+            X509Certificate clientCertificate = null;
+            clientCertificate = SecurityUtils.CreateFromPkcs12(preferences.SecurityPreferences.ClientCertificatePath);
+
+            logger?.Log($"Client certificate: {clientCertificate.GetCertHashString()}");
+
+            X509CertificateCollection clientCertificates = new X509CertificateCollection() { clientCertificate };
+
+            NetworkStream basicStream = tcpClient.GetStream();
+
+            sslStream = new SslStream(
+                basicStream,
+                false,
+                methodArgs.RemoteCertificateValidationCallback,
+                methodArgs.LocalCertificateSelectionCallback,
+                EncryptionPolicy.RequireEncryption
+                );
+            try
+            {
+                sslStream.AuthenticateAsClient(preferences.SecurityPreferences.ServerName, clientCertificates, true);
+                SecurityUtils.LogSecurityInfo((s, i) => logger?.Log(s), sslStream);
+            }
+            catch (AuthenticationException e)
+            {
+                logger?.Log($"Authentication Exception: {e.Message}");
+                if (e.InnerException != null)
+                {
+                    logger?.Log("Inner exception: {e.InnerException.Message}");
+                }
+                logger?.Log("Authentication failed - closing the connection.");
+                tcpClient.Close();
+
+                throw;
+            }
+
         }
     }
 }
