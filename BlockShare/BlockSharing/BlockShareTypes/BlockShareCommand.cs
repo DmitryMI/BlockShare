@@ -150,7 +150,7 @@ namespace BlockShare.BlockSharing.BlockShareTypes
 #endif
 
             command.ReadValuesFromClient(networkStream, netStat, timeout);
-            Console.WriteLine($"<-- {command}");
+            //Console.WriteLine($"<-- {command}");
             return command;
         }
     }
