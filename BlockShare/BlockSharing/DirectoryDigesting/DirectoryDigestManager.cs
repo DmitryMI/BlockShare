@@ -27,20 +27,27 @@ namespace BlockShare.BlockSharing.DirectoryDigesting
 
             Logger = logger;
 
-            fileSystemWatcher = new FileSystemWatcher(preferences.ServerStoragePath);
-            fileSystemWatcher.EnableRaisingEvents = true;
-            fileSystemWatcher.IncludeSubdirectories = true;
-            fileSystemWatcher.Created += FileSystemWatcher_Created;
-            fileSystemWatcher.Deleted += FileSystemWatcher_Deleted;
-            fileSystemWatcher.Changed += FileSystemWatcher_Changed;
-            fileSystemWatcher.Renamed += FileSystemWatcher_Renamed;
-            fileSystemWatcher.Error += FileSystemWatcher_Error;
-
-            Logger?.Log("Generating Directory Digest for server storage directory");
             rootDigest = new DirectoryDigest();
             rootDirInfo = new DirectoryInfo(preferences.ServerStoragePath);
-            rootDigest.GenerateDigest(rootDirInfo, rootDirInfo, int.MaxValue);
-            Logger?.Log("Digest generated");
+
+            if (preferences.UseDigestCache)
+            {
+                throw new NotImplementedException();
+
+                fileSystemWatcher = new FileSystemWatcher(preferences.ServerStoragePath);
+                fileSystemWatcher.EnableRaisingEvents = true;
+                fileSystemWatcher.IncludeSubdirectories = true;
+                fileSystemWatcher.Created += FileSystemWatcher_Created;
+                fileSystemWatcher.Deleted += FileSystemWatcher_Deleted;
+                fileSystemWatcher.Changed += FileSystemWatcher_Changed;
+                fileSystemWatcher.Renamed += FileSystemWatcher_Renamed;
+                fileSystemWatcher.Error += FileSystemWatcher_Error;
+
+                Logger?.Log("Generating Directory Digest for server storage directory");
+               
+                rootDigest.GenerateDigest(rootDirInfo, rootDirInfo, int.MaxValue);
+                Logger?.Log("Digest generated");
+            }
         }
 
         private void FileSystemWatcher_Error(object sender, ErrorEventArgs e)
@@ -70,33 +77,45 @@ namespace BlockShare.BlockSharing.DirectoryDigesting
 
         public DirectoryDigest GetDirectoryDigest(DirectoryInfo targetDirectory, int recursionLevel = Int32.MaxValue)
         {
-            string path = targetDirectory.FullName;
-            string relativePath = GetRelativePath(path);
-            DirectoryDigest cachedDigest = null;
-            try
+            if(preferences.UseDigestCache)
             {
-                EntryDigest entryDigest = rootDigest.GetEntry(relativePath);
-                cachedDigest = (DirectoryDigest)entryDigest;
-            }
-            catch(PathNotFoundException ex)
-            {
-                Logger?.Log(ex.Message);
-            }
-            catch(PathSegmentIsFileException ex)
-            {
-                Logger?.Log(ex.Message);
-            }
-            catch(Exception ex)
-            {
-                Logger?.Log(ex.Message);
-            }
+                throw new NotImplementedException();
 
-            if(cachedDigest != null)
-            {
-                return cachedDigest;
-            }
+                string path = targetDirectory.FullName;
+                string relativePath = GetRelativePath(path);
+                DirectoryDigest cachedDigest = null;
+                try
+                {
+                    EntryDigest entryDigest = rootDigest.GetEntry(relativePath);
+                    cachedDigest = (DirectoryDigest)entryDigest;
+                }
+                catch (PathNotFoundException ex)
+                {
+                    Logger?.Log(ex.Message);
+                }
+                catch (PathSegmentIsFileException ex)
+                {
+                    Logger?.Log(ex.Message);
+                }
+                catch (Exception ex)
+                {
+                    Logger?.Log(ex.Message);
+                }
 
-            throw new NotImplementedException();
+                if (cachedDigest != null)
+                {
+                    return cachedDigest;
+                }
+
+                throw new NotImplementedException();
+            }
+            else
+            {
+                DirectoryDigest directoryDigest = new DirectoryDigest();
+                directoryDigest.GenerateDigest(targetDirectory, rootDirInfo, recursionLevel);
+                return directoryDigest;
+            }
+           
         }
 
         public string GetRelativePath(string fullPath)

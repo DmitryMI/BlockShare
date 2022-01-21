@@ -88,5 +88,8 @@ namespace BlockShare.BlockSharing.PreferencesManagement
         [PreferenceParameter(IsRequired = false)]
         public string StorageMappingFile { get; set; } = null;
 
+        [PreferenceParameter(IsRequired = false)]
+        public bool UseDigestCache { get; set; } = false;
+
     }
 }

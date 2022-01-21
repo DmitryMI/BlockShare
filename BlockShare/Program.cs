@@ -426,6 +426,13 @@ namespace BlockShare
                         while (current.RelativePath != currentPath)
                         {
                             pathStack.Push(current);
+                            if(!current.IsLoaded)
+                            {
+                                Console.WriteLine("Loading...");
+                                //DirectoryDigest digest = client.GetDirectoryDigest(ip, port, current.RelativePath, 1 );
+                                DirectoryDigest digest = client.GetDirectoryDigest(current.RelativePath, preferences.BrowserRecursionLevel);
+                                current.LoadEntriesFrom(digest);
+                            }
                             var subDirs = current.GetSubDirectories();
                             var nextDir = subDirs.First(d => d.Name == pathSegments[depth]);
                             depth++;
