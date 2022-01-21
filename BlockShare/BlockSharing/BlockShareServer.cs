@@ -320,7 +320,7 @@ namespace BlockShare.BlockSharing
 
                     string digestFilePath = GetPath(getDirectoryDigestCommand.Path);
 
-                    Log($"Client request received: {digestFilePath}", 0);
+                    Log($"Client request received: {digestFilePath}", 1);
 
                     if (!CheckRequestValidity(digestFilePath))
                     {
@@ -341,7 +341,7 @@ namespace BlockShare.BlockSharing
                         return ClientLoopResult.Continue;
                     }
 
-                    Log($"Generating XML digest with recursion level {getDirectoryDigestCommand.RecursionLevel}...", 0);
+                    Log($"Generating XML digest with recursion level {getDirectoryDigestCommand.RecursionLevel}...", 1);
                     DirectoryInfo directoryInfo = new DirectoryInfo(digestFilePath);
                     DirectoryInfo rootDirectoryInfo = new DirectoryInfo(preferences.ServerStoragePath);
                     //DirectoryDigest directoryDigest = new DirectoryDigest(directoryInfo, rootDirectoryInfo, getDirectoryDigestCommand.RecursionLevel);
