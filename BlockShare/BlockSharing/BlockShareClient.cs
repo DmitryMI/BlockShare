@@ -118,65 +118,16 @@ namespace BlockShare.BlockSharing
 
             if(preferences.SecurityPreferences != null && preferences.SecurityPreferences.Method != SecurityMethod.None)
             {
-                Log($"Using security method: {preferences.SecurityPreferences.Method}", 0);
-
-                acceptableCertificates.AddRange(Utils.GetCertificates(preferences.SecurityPreferences.AcceptedCertificatesDirectoryPath));
-
-                if (preferences.SecurityPreferences.CertificateAuthorityPath != null)
+                SecurityUtils.CreateSslConnectionParams createSslConnectionParams = new SecurityUtils.CreateSslConnectionParams()
                 {
-                    certificateAuthority = new X509Certificate(preferences.SecurityPreferences.CertificateAuthorityPath);
-                }
-                else
-                {
-                    throw new RequiredOptionMissingException("Loaded config", "SecurityPreferences.CertificateAuthorityPath");
-                }
-
-                if (!File.Exists(preferences.SecurityPreferences.CertificateAuthorityPath))
-                {
-                    throw new FileNotFoundException("Certificate Authority does not exist", preferences.SecurityPreferences.CertificateAuthorityPath);
-                }
-
-                if (preferences.SecurityPreferences.ServerName == null)
-                {
-                    throw new RequiredOptionMissingException("Loaded config", "SecurityPreferences.ServerName");
-                }
-
-                Log($"Accepted certificates count: {acceptableCertificates.Count}", 0);
-
-                X509Certificate clientCertificate = null;
-                clientCertificate = SecurityUtils.CreateFromPkcs12(preferences.SecurityPreferences.ClientCertificatePath);
-
-                Log($"Client certificate: {clientCertificate.GetCertHashString()}", 0);
-
-                X509CertificateCollection clientCertificates = new X509CertificateCollection() { clientCertificate };
-
-                NetworkStream basicStream = tcpClient.GetStream();
-
-                SslStream sslStream = new SslStream(
-                    basicStream,
-                    false,
-                    new RemoteCertificateValidationCallback(ValidateServerCertificate),
-                    new LocalCertificateSelectionCallback(SelectClientCertificate),
-                    EncryptionPolicy.RequireEncryption
-                    );
-                try
-                {
-                    sslStream.AuthenticateAsClient(preferences.SecurityPreferences.ServerName, clientCertificates, true);
-                    SecurityUtils.LogSecurityInfo(Log, sslStream);
-                }
-                catch(AuthenticationException e)
-                {
-                    Log($"Authentication Exception: {e.Message}", 0);
-                    if (e.InnerException != null)
-                    {
-                        Log("Inner exception: {e.InnerException.Message}", 0);
-                    }
-                    Log("Authentication failed - closing the connection.", 0);
-                    tcpClient.Close();
-
-                    throw;
-                }
-
+                    Preferences = preferences,
+                    TcpClient = tcpClient,
+                    Logger = logger,
+                    AcceptableCertificates = acceptableCertificates,
+                    RemoteCertificateValidationCallback = new RemoteCertificateValidationCallback(ValidateServerCertificate),
+                    LocalCertificateSelectionCallback = new LocalCertificateSelectionCallback(SelectClientCertificate)
+                };
+                SecurityUtils.CreateSslConnection(createSslConnectionParams, out var sslStream, out certificateAuthority);
                 networkStream = sslStream;
             }
             else
@@ -258,7 +209,6 @@ namespace BlockShare.BlockSharing
         {
             //string localFilePath = Path.Combine(preferences.ClientStoragePath, fileName);
             string localFilePath = GetLocalFilePath(fileName);
-
 
             FileInfo localFileInfo = new FileInfo(localFilePath);
             DirectoryInfo rootDirectoryInfo = new DirectoryInfo(preferences.ClientStoragePath);
@@ -492,7 +442,7 @@ namespace BlockShare.BlockSharing
             {
                 DownloadFileNoHashlist(networkStream, fileName, index, fileDigest);
             }
-        }
+        }        
 
         public void DownloadFile(string entryName)
         {
