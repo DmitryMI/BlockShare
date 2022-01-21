@@ -348,6 +348,7 @@ namespace BlockShare
                 Console.WriteLine("D X - Download X");
                 Console.WriteLine("E X or X - Enter X");
                 Console.WriteLine("U - Go up");
+                Console.WriteLine("R - Reload");
                 Console.WriteLine("Q - Quit browser");
 
                 string input = Console.ReadLine();
@@ -413,6 +414,22 @@ namespace BlockShare
                         if (pathStack.Count > 0)
                         {
                             current = pathStack.Pop();
+                        }
+                        break;
+                    case "R":
+                        rootDigest = client.GetDirectoryDigest(fileName, preferences.BrowserRecursionLevel);                       
+                        string currentPath = current.RelativePath;
+                        pathStack.Clear();
+                        current = rootDigest;
+                        string[] pathSegments = currentPath.Split('\\');
+                        int depth = 0;
+                        while (current.RelativePath != currentPath)
+                        {
+                            pathStack.Push(current);
+                            var subDirs = current.GetSubDirectories();
+                            var nextDir = subDirs.First(d => d.Name == pathSegments[depth]);
+                            depth++;
+                            current = nextDir;                            
                         }
                         break;
                     case "Q":
