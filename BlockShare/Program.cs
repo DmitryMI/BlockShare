@@ -64,7 +64,15 @@ namespace BlockShare
                 }
                 else
                 {
-                    progress = (double)eventData.LocalHashList.BlocksCount / eventData.RemoteHashList.BlocksCount;
+                    int downloadedBlocksCount = 0;
+                    for(int i = 0; i < eventData.LocalHashList.BlocksCount && i < eventData.RemoteHashList.BlocksCount; i++)
+                    {
+                        if(eventData.LocalHashList[i] == eventData.RemoteHashList[i])
+                        {
+                            downloadedBlocksCount++;
+                        }
+                    }
+                    progress = (double)downloadedBlocksCount / eventData.RemoteHashList.BlocksCount;
                 }
 
                 if (!downloadingProgressTable.ContainsKey(eventData.FileName))
