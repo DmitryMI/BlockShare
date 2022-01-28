@@ -290,7 +290,7 @@ namespace BlockShare.BlockSharing
         }
 
         private void DownloadFileWithHashlist(Stream networkStream, string fileName, int index, FileDigest fileDigest)
-        {
+        {            
             //string localFilePath = Path.Combine(preferences.ClientStoragePath, fileName);
             string localFilePath = GetLocalFilePath(fileName);
             string localFileHashlistPath = preferences.HashMapper.GetHashpartFile(localFilePath);

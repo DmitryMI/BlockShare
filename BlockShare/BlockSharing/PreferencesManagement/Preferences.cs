@@ -53,6 +53,11 @@ namespace BlockShare.BlockSharing.PreferencesManagement
         [PreferenceParameter(IsRequired = false)]
         public bool UseHashLists { get; set; } = false;
 
+        /*
+        [PreferenceParameter(IsRequired = false)]
+        public bool ForceRehashWhenSizesMatch { get; set; } = false;
+        */
+
 #if ENSURE_SECURITY
         [PreferenceParameter(IsRequired = true)]
 #else

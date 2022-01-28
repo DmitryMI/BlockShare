@@ -144,6 +144,29 @@ namespace BlockShare.BlockSharing.PreferencesManagement
             doc.Save(configFilePath);
         }
 
+        private static string GetValueFromArgs(string propertyName, string[] args)
+        {
+            for (int i = 0; i < args.Length; i++)
+            {
+                string arg = args[i];
+                if (arg.Length < 2)
+                {
+                    continue;
+                    //throw new CommandLineParsingException(arg);
+                }
+                if (arg[0] == '-' && arg[1] == '-')
+                {
+                    string strAlias = arg.Substring(2);
+                    if (strAlias == propertyName)
+                    {
+                        return args[i + 1];
+                    }
+                }
+            }
+
+            return null;
+        }
+
         private static string GetValueFromArgs(CommandLineAliasAttribute aliasAttribute, string[] args)
         {
             for (int i = 0; i < args.Length; i++)
@@ -207,9 +230,12 @@ namespace BlockShare.BlockSharing.PreferencesManagement
                 CommandLineAliasAttribute aliasAttribute = propertyInfo.GetCustomAttribute<CommandLineAliasAttribute>();
                 if (aliasAttribute == null)
                 {
-                    continue;
+                    strValue = GetValueFromArgs(propertyInfo.Name, args);
                 }
-                strValue = GetValueFromArgs(aliasAttribute, args);
+                else
+                {
+                    strValue = GetValueFromArgs(aliasAttribute, args);
+                }
 
                 if (strValue == null)
                 {
